@@ -1,0 +1,84 @@
+{
+  // Opens dependency-update PRs for every pin in the repo. Which manager owns what:
+  //   dockerfile      the ubuntu base and the uv stage, both plain FROM lines
+  //   github-actions  the two workflows' own action pins
+  //   customManagers  every `# renovate:`-annotated ARG in the Dockerfile, since Renovate cannot
+  //                   see what a curl URL further down does with them
+  // Cadence is the cron in .github/workflows/renovate.yaml, not an internal `schedule`, so a manual
+  // workflow_dispatch works too.
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":dependencyDashboard", // one issue listing every pending/failed update (needs repo Issues enabled)
+    "helpers:pinGitHubActionDigestsToSemver", // action pins carry a readable version alongside the digest
+  ],
+  prConcurrentLimit: 5,
+  prHourlyLimit: 0, // no hourly throttle
+  dependencyDashboardTitle: "Renovate dependency dashboard",
+
+  // Automerge through Renovate's own API call, not GitHub's native auto-merge. Renovate waits for a PR's
+  // required CI checks by default, and branch protection enforces them on the merge call too, so the combined
+  // PR lands on a LATER run once CI is green. That is why the cron runs every 3h rather than weekly.
+  // platformAutomerge stays false to keep the merge on Renovate's side.
+  platformAutomerge: false,
+
+  customManagers: [
+    {
+      // Every pinned tool version is an ARG at the top of the Dockerfile, consumed by a curl URL or a
+      // `go install` below. Renovate has no way to know what an ARG feeds, so each one names its own
+      // datasource in the comment directly above it. An ARG without that comment is never updated.
+      customType: "regex",
+      description: "annotated version ARGs in the Dockerfile",
+      managerFilePatterns: ["/^Dockerfile$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+ARG \\w+=(?<currentValue>\\S+)",
+      ],
+    },
+  ],
+
+  packageRules: [
+    {
+      // ONE combined, auto-merged PR for every NON-major update, gated on the required CI checks. Nothing
+      // live moves when it lands: it only changes what the next `airlock --build` produces, and an already
+      // built local image keeps working until then. The `build` job is what makes this safe, since a bumped
+      // version whose download URL no longer exists fails there rather than on someone's laptop.
+      description: "combine all non-major updates into one auto-merged PR",
+      matchUpdateTypes: ["minor", "patch", "digest", "pin"],
+      groupName: "all non-major dependencies",
+      automerge: true,
+    },
+    // MAJOR updates get their own PR each, which is Renovate's default, so no rule below does it. That keeps
+    // a breaking bump reviewed in isolation.
+    {
+      // Pin action refs to commit digests, so a moving tag cannot swap the action's code under us. The
+      // semver-comment helper above keeps a readable version beside each digest.
+      description: "pin github action refs to digests",
+      matchManagers: ["github-actions"],
+      pinDigests: true,
+    },
+    {
+      // Both release tags are v-prefixed and the ARGs are not, because the download URLs build both forms.
+      description: "gh and golangci-lint releases are v-prefixed, the ARGs are not",
+      matchDepNames: ["cli/cli", "golangci/golangci-lint"],
+      extractVersion: "^v(?<version>.+)$",
+    },
+    {
+      // kustomize lives in a monorepo, so its releases are tagged kustomize/v5.8.1 while the ARG is v5.8.1.
+      description: "strip the kustomize/ prefix from monorepo release tags",
+      matchDepNames: ["kubernetes-sigs/kustomize"],
+      extractVersion: "^kustomize/(?<version>.+)$",
+    },
+    {
+      // helm 4 is a breaking major. Delete this rule when you want the upgrade PR.
+      description: "hold helm on the 3.x line",
+      matchDepNames: ["helm/helm"],
+      allowedVersions: "<4",
+    },
+    {
+      // node ships odd-numbered majors that never reach LTS and are unsupported within months.
+      description: "node: even (LTS) majors only",
+      matchDepNames: ["nodejs/node"],
+      allowedVersions: "/^v?\\d*[02468]\\./",
+    },
+  ],
+}

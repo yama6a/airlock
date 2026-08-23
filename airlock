@@ -1,0 +1,274 @@
+#!/usr/bin/env bash
+# Runs Claude Code in a container with its own config and its own login. Stock bash 3.2.
+set -euo pipefail
+
+[[ "$(uname -s)" == Darwin ]] || { echo "airlock: macOS only" >&2; exit 1; }
+
+# ---- knobs ----
+IMAGE="${AIRLOCK_IMAGE:-airlock:latest}"
+VOLUME="${AIRLOCK_VOLUME:-airlock-config}"
+CACHE_VOLUME="${AIRLOCK_CACHE_VOLUME:-airlock-cache}"
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/airlock"
+
+HOST_HOME="$HOME"
+HOST_CLAUDE="${CLAUDE_CONFIG_DIR:-$HOST_HOME/.claude}"
+HOST_CLAUDE_JSON="$HOST_CLAUDE/.claude.json"
+[[ -f "$HOST_CLAUDE_JSON" ]] || HOST_CLAUDE_JSON="$HOST_HOME/.claude.json"
+BOX_USER="${AIRLOCK_USER:-$(id -un)}"
+BOX_HOME="${AIRLOCK_HOME:-$HOST_HOME}"
+BOX_CLAUDE="$BOX_HOME/.claude"
+
+log() { echo "airlock: $*" >&2; }
+die() { log "$*"; exit 1; }
+
+# Outside these a bind mounts empty with no error, which is harder to spot than a failure.
+shared_path() {
+  case "$1" in
+    "$HOST_HOME"/*|/Users/*|/Volumes/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+env_add() {
+  local spec="$1" name val
+  name="${spec%%=*}"
+  case "$name" in
+    ""|[!A-Za-z_]*|*[!A-Za-z0-9_]*) die "--env $spec: '$name' is not a variable name" ;;
+  esac
+  if [[ "$spec" == *=* ]]; then
+    user_envs+=(-e "$spec")
+  else
+    eval "val=\${$name+x}"
+    [[ -n "$val" ]] || { log "--env $name is unset on the host, skipped"; return; }
+    eval "user_envs+=(-e \"\$name=\${$name}\")"
+  fi
+  env_names="$env_names $name"
+}
+
+# Mounted at their host path, so a path claude prints is the same path on the host.
+add_dir() {
+  local spec="$1" ro="$2" p i
+  p="$(cd -- "$spec" 2>/dev/null && pwd -P)" || die "--add-dir $spec: not a directory"
+  [[ "$p" == "/" ]] && die "--add-dir: refusing /"
+  [[ "$p" == "$HOST_HOME" ]] && die "--add-dir: refusing \$HOME"
+  [[ "$p" == "$HOST_CLAUDE" || "$p" == "$HOST_CLAUDE"/* ]] \
+    && die "--add-dir: refusing $HOST_CLAUDE; it collides with the config volume"
+  shared_path "$p" || die "--add-dir $p is outside the paths the runtime shares with its VM"
+  for ((i = 0; i < ${#add_paths[@]}; i++)); do
+    [[ "${add_paths[$i]}" == "$p" ]] && return 0
+  done
+  add_paths+=("$p"); add_ro+=("$ro")
+}
+
+. "$SCRIPT_DIR/lib/seed.sh"
+
+do_build=0 do_config=0 mode=claude
+extra=() user_envs=() add_paths=() add_ro=()
+env_names=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --build|--rebuild) do_build=1; shift ;;
+    --config)          do_config=1; shift ;;
+    --shell)           mode=shell; shift ;;
+    --no-yolo)         mode=plain; shift ;;
+    -e|--env)
+      [[ $# -ge 2 ]] || die "--env needs NAME=value or NAME"
+      env_add "$2"; shift 2 ;;
+    --env=*)           env_add "${1#--env=}"; shift ;;
+    --add-dir|--add-dir-rw)
+      [[ $# -ge 2 ]] || die "$1 needs a directory"
+      add_dir "$2" 0; shift 2 ;;
+    --add-dir=*|--add-dir-rw=*) add_dir "${1#*=}" 0; shift ;;
+    --add-dir-ro)
+      [[ $# -ge 2 ]] || die "--add-dir-ro needs a directory"
+      add_dir "$2" 1; shift 2 ;;
+    --add-dir-ro=*)    add_dir "${1#*=}" 1; shift ;;
+    --reset)
+      if "${AIRLOCK_ENGINE:-docker}" volume rm "$VOLUME" >/dev/null 2>&1; then
+        log "removed volume $VOLUME: copied config, the login, and session state"
+      else
+        log "no volume $VOLUME"
+      fi
+      "${AIRLOCK_ENGINE:-docker}" volume rm "$CACHE_VOLUME" >/dev/null 2>&1 \
+        && log "removed volume $CACHE_VOLUME: npm, uv and go caches" || true
+      for p in "$(dirname "$CONFIG_FILE")" "$CACHE_DIR"; do
+        # Guarded because a bad edit upstream would make this an rm -rf of something else.
+        case "$p" in */airlock) ;; *) log "refusing to remove $p"; continue ;; esac
+        if [[ -e "$p" ]]; then rm -rf "$p" && log "removed $p"; fi
+      done
+      log "image $IMAGE kept, delete it with: ${AIRLOCK_ENGINE:-docker} rmi $IMAGE"
+      exit 0 ;;
+    -h|--help)
+      cat <<'EOF'
+usage: airlock [flags] [claude args...]
+
+  --config       choose again what to copy from the host, and re-copy
+  --build        rebuild the image and exit
+  --shell        run bash in the claude container
+  --no-yolo      run without --dangerously-skip-permissions
+  -e, --env NAME=value
+                 set an env var in the container, repeatable. Bare --env NAME forwards
+                 the host's value. The container gets nothing else from the host.
+  --add-dir-rw DIR
+                 mount another directory as well as $PWD and let claude use it,
+                 repeatable. --add-dir is the same flag. Mounted at its host path.
+  --add-dir-ro DIR
+                 the same, read-only, repeatable
+  --reset        wipe everything persisted and exit: the volume holding the copied
+                 config, the login and session state, the remembered answers in
+                 ~/.config/airlock, and the build stamp in ~/.cache/airlock.
+                 Leaves the image. Does not start Claude.
+  -h, --help     this
+
+Anything else is passed to claude, e.g. `airlock -p 'summarise this repo'`.
+
+On first run it looks for Claude config in $CLAUDE_CONFIG_DIR or ~/.claude and asks
+what to copy into a persistent volume. Symlinks are resolved, so a config kept in a
+dotfiles repo or a synced folder works. Nothing is bind-mounted, so the container
+cannot change your host config. Answers are remembered in ~/.config/airlock/config.
+
+The container logs in separately and gets no ANTHROPIC_* from the host, so it can run
+a different account or endpoint than the host does: airlock -e ANTHROPIC_BASE_URL=...
+
+Environment:
+  AIRLOCK_HOME   container home; defaults to the host $HOME so absolute paths in
+                 settings.json resolve
+  AIRLOCK_ENGINE, AIRLOCK_IMAGE, AIRLOCK_VOLUME, AIRLOCK_PLATFORM
+EOF
+      exit 0 ;;
+    *) extra+=("$1"); shift ;;
+  esac
+done
+
+ENGINE="${AIRLOCK_ENGINE:-docker}"
+command -v "$ENGINE" >/dev/null || die "$ENGINE not found on PATH"
+if "$ENGINE" --version 2>/dev/null | grep -qi podman; then
+  die "$ENGINE is podman, which differs on userns mapping and socket discovery; unsupported"
+fi
+
+# docker info reports aarch64, which is not a valid platform value.
+server="$("$ENGINE" version --format '{{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null || true)"
+[[ -n "$server" && "$server" != "/" ]] || die "cannot reach $ENGINE; is the runtime running?"
+PLATFORM="${AIRLOCK_PLATFORM:-${DOCKER_DEFAULT_PLATFORM:-$server}}"
+
+mkdir -p "$CACHE_DIR"
+built_stamp="$CACHE_DIR/built"
+
+if [[ "$do_build" == 1 ]] || ! "$ENGINE" image inspect "$IMAGE" >/dev/null 2>&1; then
+  log "building $IMAGE for $PLATFORM"
+  "$ENGINE" build --platform "$PLATFORM" -t "$IMAGE" "$SCRIPT_DIR"
+  : > "$built_stamp"
+  [[ "$do_build" == 1 ]] && exit 0
+elif [[ -f "$built_stamp" ]] \
+  && [[ -n "$(find "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR/entrypoint.sh" -newer "$built_stamp" 2>/dev/null)" ]]; then
+  log "Dockerfile or entrypoint changed since the last build; run --build"
+fi
+
+seed_load_prefs
+# No volume means nothing has been copied yet, so that is the first-run signal.
+if [[ "$do_config" == 1 ]] || ! "$ENGINE" volume inspect "$VOLUME" >/dev/null 2>&1; then
+  seed_interview
+fi
+
+if [[ "$do_config" == 1 ]]; then
+  log "config updated"
+  exit 0
+fi
+
+WORKDIR="$(pwd -P)"                               # docker resolves the source in the VM,
+                                                  # where a logical path may not exist
+[[ "$WORKDIR" == "/" ]] && die "refusing to mount /"
+[[ "$WORKDIR" == "$HOST_HOME" ]] && die "refusing to run from \$HOME; it collides with the config volume"
+[[ "$WORKDIR" == "$HOST_CLAUDE" || "$WORKDIR" == "$HOST_CLAUDE"/* ]] \
+  && die "refusing to run from inside ~/.claude; it collides with the config volume"
+shared_path "$WORKDIR" || die "$WORKDIR is outside the paths the runtime shares with its VM"
+
+mounts=(--mount "type=volume,src=$VOLUME,dst=$BOX_CLAUDE")
+# npx and uvx fetch an MCP server on every launch, so without this each session re-downloads.
+mounts+=(--mount "type=volume,src=$CACHE_VOLUME,dst=$BOX_HOME/.cache")
+listed=""
+
+host_seed() {
+  [[ -e "$1" ]] || return 0
+  mounts+=(--mount "type=bind,src=$1,dst=$2,readonly")
+  listed="$listed $3"
+}
+
+[[ "${AIRLOCK_NO_GIT:-0}" == 0 && "$MOUNT_GIT" == 1 ]] && {
+  host_seed "$HOST_HOME/.gitconfig"           /mnt/seed/gitconfig           gitconfig
+  host_seed "$HOST_HOME/.gitignore"           /mnt/seed/gitignore           gitignore
+  host_seed "$HOST_HOME/.git_allowed_signers" /mnt/seed/git_allowed_signers allowed_signers
+}
+[[ "${AIRLOCK_NO_KUBE:-0}" == 0 && "$MOUNT_KUBE" == 1 ]] \
+  && host_seed "$HOST_HOME/.kube/config" /mnt/seed/kube-config kubeconfig
+[[ "${AIRLOCK_NO_SSH:-0}" == 0 && "$MOUNT_SSH" == 1 ]] \
+  && host_seed "$HOST_HOME/.ssh" /mnt/seed/ssh ssh
+
+# Resolved inside the VM: a host-side socket path is visible but not connectable.
+if [[ "${AIRLOCK_NO_DOCKER_SOCK:-0}" == 0 && "$MOUNT_DOCKER_SOCK" == 1 ]]; then
+  mounts+=(--mount "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock")
+  listed="$listed docker.sock"
+fi
+
+mounts+=(--mount "type=bind,src=$WORKDIR,dst=$WORKDIR")
+
+[[ -n "$listed" ]] && log "host   ${listed# } (read-only)"
+log "work   $WORKDIR"
+
+add_flags=() add_env=""
+for ((i = 0; i < ${#add_paths[@]}; i++)); do
+  p="${add_paths[$i]}"
+  [[ "$p" == "$WORKDIR" ]] && continue
+  if [[ "${add_ro[$i]}" == 1 ]]; then
+    mounts+=(--mount "type=bind,src=$p,dst=$p,readonly")
+    log "also   $p (read-only)"
+  else
+    mounts+=(--mount "type=bind,src=$p,dst=$p")
+    log "also   $p"
+  fi
+  # Mounting alone is not enough; claude refuses a path outside the ones it was given.
+  add_flags+=(--add-dir "$p")
+  add_env="$add_env$p"$'\n'                        # newline-separated: a path may hold a colon
+done
+
+envs=(
+  -e "AIRLOCK_USER=$BOX_USER"
+  -e "AIRLOCK_HOME=$BOX_HOME"
+  -e "AIRLOCK_HOST_HOME=$HOST_HOME"
+  -e "AIRLOCK_HOST_UID=$(id -u)"
+  -e "AIRLOCK_HOST_GID=$(id -g)"
+  -e "AIRLOCK_WORKDIR=$WORKDIR"
+  -e "AIRLOCK_ADD_DIRS=$add_env"
+)
+for v in AIRLOCK_FIX_SIGNING AIRLOCK_COPY_KUBECONFIG TERM COLORTERM; do
+  eval "val=\${$v:-}"
+  [[ -n "$val" ]] && envs+=(-e "$v=$val")
+done
+if [[ ${#user_envs[@]} -gt 0 ]]; then
+  envs+=("${user_envs[@]}")                       # after the forwarded ones, so --env TERM=dumb wins
+  log "env    ${env_names# }"
+fi
+
+tty_flags=(-i)                                    # without -i a piped stdin sees EOF
+[[ -t 0 && -t 1 ]] && tty_flags+=(-t)             # -t only on a terminal, so pipes work
+
+A=("${add_flags[@]+"${add_flags[@]}"}")           # bash 3.2 expands an empty array as unset
+case "$mode" in
+  shell)  cmd=(bash) ;;
+  plain)  cmd=(claude "${A[@]+"${A[@]}"}" "${extra[@]+"${extra[@]}"}") ;;
+  claude) cmd=(claude --dangerously-skip-permissions "${A[@]+"${A[@]}"}" "${extra[@]+"${extra[@]}"}") ;;
+esac
+
+slug="$(basename "$WORKDIR" | tr -c '[:alnum:]._-' '-' | cut -c1-40)"
+
+exec "$ENGINE" run --rm --init \
+  "${tty_flags[@]}" \
+  --shm-size=1g \
+  --name "airlock-${slug}-$$" \
+  --user root \
+  -w "$WORKDIR" \
+  "${mounts[@]}" \
+  "${envs[@]}" \
+  "$IMAGE" "${cmd[@]}"

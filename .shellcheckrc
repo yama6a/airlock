@@ -1,0 +1,6 @@
+# Style rules this project deliberately goes against, so CI can fail on everything else.
+disable=SC2004   # i_on[$idx] reads better than i_on[idx] beside "${i_on[$idx]}"
+disable=SC2015   # test && ok || bad is the whole reporting idea in test/smoke.sh
+disable=SC2016   # the seed extractor is a single-quoted script run inside the container
+disable=SC1090   # ~/.config/airlock/config is sourced by design
+disable=SC2329   # cleanup() runs from a trap
