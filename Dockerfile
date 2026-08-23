@@ -4,7 +4,7 @@
 ARG UV_VERSION=0.12.0
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ARG TARGETARCH
 
