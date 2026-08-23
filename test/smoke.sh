@@ -19,6 +19,8 @@ mkdir -p "$STUB"
 printf '#!/bin/sh\n[ "$1" = -s ] && echo Darwin || exec /usr/bin/uname "$@"\n' > "$STUB/uname"
 printf '#!/bin/sh\nexit 1\n' > "$STUB/noengine"
 chmod 0755 "$STUB/uname" "$STUB/noengine"
+# jq lives in Homebrew, which the stock PATH below drops, so link the caller's copy in.
+jq_bin="$(command -v jq 2>/dev/null)" && ln -sf "$jq_bin" "$STUB/jq"
 BIN="$STUB:/usr/bin:/bin"
 
 # Stock macOS PATH and no inherited environment, which is how the launcher must survive.

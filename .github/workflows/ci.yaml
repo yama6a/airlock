@@ -26,9 +26,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # smoke.sh runs the launcher on a stock macOS PATH, which excludes Homebrew, so jq
-      # has to be reachable from /usr/bin or the seed section detects nothing.
-      - run: sudo ln -sf "$(command -v jq)" /usr/bin/jq
       - run: ./test/smoke.sh
 
   # Catches a version bump whose download URL no longer exists, which is the failure mode of
