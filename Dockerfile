@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
-ARG UV_VERSION=0.12.0
+ARG UV_VERSION=0.12.5
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 FROM ubuntu:26.04
@@ -9,9 +9,9 @@ FROM ubuntu:26.04
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION=v1.35.7
+ARG KUBECTL_VERSION=v1.36.4
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v3.21.3
+ARG HELM_VERSION=v3.21.4
 # renovate: datasource=github-releases depName=derailed/k9s
 ARG K9S_VERSION=v0.51.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize
@@ -19,11 +19,11 @@ ARG KUSTOMIZE_VERSION=v5.8.1
 # renovate: datasource=github-releases depName=ahmetb/kubectx
 ARG KUBECTX_VERSION=v0.11.0
 # renovate: datasource=github-releases depName=mikefarah/yq
-ARG YQ_VERSION=v4.53.3
+ARG YQ_VERSION=v4.53.6
 # renovate: datasource=github-releases depName=cli/cli
-ARG GH_VERSION=2.96.0
+ARG GH_VERSION=2.98.0
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
-ARG GO_VERSION=go1.26.5
+ARG GO_VERSION=go1.27.0
 # renovate: datasource=github-tags depName=nodejs/node
 ARG NODE_VERSION=v26.7.0
 # renovate: datasource=go depName=golang.org/x/tools/gopls
@@ -33,11 +33,11 @@ ARG OAPI_CODEGEN_VERSION=v2.8.0
 # renovate: datasource=go depName=mvdan.cc/gofumpt
 ARG GOFUMPT_VERSION=v0.11.0
 # renovate: datasource=go depName=golang.org/x/vuln
-ARG GOVULNCHECK_VERSION=v1.1.4
+ARG GOVULNCHECK_VERSION=v1.7.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 ARG GOLANGCI_LINT_VERSION=2.13.1
 # renovate: datasource=npm depName=playwright
-ARG PLAYWRIGHT_VERSION=1.62.0
+ARG PLAYWRIGHT_VERSION=1.62.1
 # renovate: datasource=pypi depName=pgcli
 ARG PGCLI_VERSION=4.5.0
 ARG PG_MAJOR=18
