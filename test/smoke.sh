@@ -12,8 +12,7 @@ ok()   { printf '  ok    %s\n' "$*"; }
 bad()  { printf '  FAIL  %s\n' "$*"; fails=$((fails + 1)); }
 head_() { printf '\n%s\n' "$*"; }
 
-cleanup() { rm -rf "$FIX"; }
-trap cleanup EXIT
+trap 'rm -rf "$FIX"' EXIT
 
 # Linux CI and Linux contributors would otherwise stop at the platform guard.
 mkdir -p "$STUB"
