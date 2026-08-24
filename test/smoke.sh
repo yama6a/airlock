@@ -25,7 +25,8 @@ BIN="$STUB:/usr/bin:/bin"
 
 # Stock macOS PATH and no inherited environment, which is how the launcher must survive.
 airlock() {
-  env -i PATH="$BIN" HOME="$HOME" AIRLOCK_ENGINE=noengine /bin/bash "$ROOT/airlock" "$@" 2>&1
+  env -i PATH="$BIN" HOME="$HOME" AIRLOCK_ENGINE=noengine \
+    CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" /bin/bash "$ROOT/airlock" "$@" 2>&1
 }
 
 expect_die() {
@@ -67,11 +68,12 @@ case "$out" in *"unset on the host, skipped"*) ok "bare --env of an unset var sk
   *) bad "bare --env: $(printf '%s' "$out" | head -1)" ;; esac
 
 head_ "--add-dir"
-mkdir -p "$FIX/repo"
+mkdir -p "$FIX/repo" "$FIX/conf"
 expect_die "not a directory"          --add-dir "$FIX/does-not-exist"
 expect_die "refusing /"               --add-dir /
 expect_die "refusing \$HOME"          --add-dir "$HOME"
-expect_die "collides with the config" --add-dir "$HOME/.claude"
+# Own config dir, since a runner has no ~/.claude and the die is on the resolved path.
+CLAUDE_CONFIG_DIR="$FIX/conf" expect_die "collides with the config" --add-dir "$FIX/conf"
 expect_die "outside the paths"        --add-dir /etc
 expect_die "needs a directory"        --add-dir-ro
 out="$(airlock --add-dir-rw "$FIX/repo" --add-dir-ro "$FIX/repo")"
