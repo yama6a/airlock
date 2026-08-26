@@ -39,7 +39,7 @@ ARG GOLANGCI_LINT_VERSION=2.13.1
 # renovate: datasource=npm depName=playwright
 ARG PLAYWRIGHT_VERSION=1.62.1
 # renovate: datasource=pypi depName=pgcli
-ARG PGCLI_VERSION=4.5.0
+ARG PGCLI_VERSION=4.6.0
 ARG PG_MAJOR=18
 
 ENV DEBIAN_FRONTEND=noninteractive
