@@ -96,6 +96,10 @@ Run `/login` inside the container. The browser callback cannot reach it, so:
 `/status` confirms. The login is stored in the volume and survives rebuilds; only `--reset`
 drops it. Expect to redo it every few days.
 
+`gh auth login` is the same deal: it writes to `~/.config/gh`, which is the `airlock-state`
+volume, so one login lasts until `--reset`. Pick HTTPS and paste a token, or `--env
+GITHUB_TOKEN` to forward the host's.
+
 Or skip login with a key:
 
 ```bash
@@ -135,10 +139,11 @@ airlock --env GITHUB_TOKEN            # no '=', forwards the host's value
 |-----------------------------------------------------|----------------------------|
 | Copied config, the login, Claude's session state    | volume `airlock-config`    |
 | npm, uv and Go module caches                        | volume `airlock-cache`     |
+| `~/.config`, so the `gh` login and other tool state | volume `airlock-state`     |
 | Your picker answers                                 | `~/.config/airlock/config` |
 | Build stamp for the stale-image warning             | `~/.cache/airlock/built`   |
 
-`airlock --reset` removes all four and exits. Next run is a first run. The image is kept;
+`airlock --reset` removes all five and exits. Next run is a first run. The image is kept;
 `docker rmi airlock:latest` to force a rebuild. To change only what is copied, use `--config`.
 
 ## Environment
@@ -151,7 +156,8 @@ airlock --env GITHUB_TOKEN            # no '=', forwards the host's value
 | `AIRLOCK_NO_SSH`, `AIRLOCK_NO_KUBE`, `AIRLOCK_NO_GIT`, `AIRLOCK_NO_DOCKER_SOCK` | override a saved choice for one run             |
 | `AIRLOCK_FIX_SIGNING=0`                                                         | leave a literal ssh `user.signingkey` alone     |
 | `AIRLOCK_COPY_KUBECONFIG=0`                                                     | do not copy the kubeconfig to a writable path   |
-| `AIRLOCK_ENGINE`, `AIRLOCK_IMAGE`, `AIRLOCK_VOLUME`, `AIRLOCK_PLATFORM`         | overrides                                       |
+| `AIRLOCK_ENGINE`, `AIRLOCK_IMAGE`, `AIRLOCK_PLATFORM`                           | overrides                                       |
+| `AIRLOCK_VOLUME`, `AIRLOCK_CACHE_VOLUME`, `AIRLOCK_STATE_VOLUME`                | volume names                                    |
 
 ## Never copied
 
@@ -171,7 +177,7 @@ those in by hand if you want them.
 
 - git, git-lfs, gh, tig, curl, wget, jq, yq, ripgrep, fd, tree, make, gawk, GNU coreutils,
   openssh-client, vim, less, rsync, socat, dnsutils, build-essential
-- Docker CLI with buildx and compose, kubectl, helm, kubectx, kubens, k9s, kustomize
+- Docker CLI with buildx and compose, kubectl, helm, kubectx, kubens, k9s, kustomize, kubeconform
 - `sqlite3`, `psql` and `pgcli` from PGDG, a major ahead of Ubuntu's
 - `gopls`, `gofumpt`, `golangci-lint`, `govulncheck`, `oapi-codegen`, all in `/usr/local/bin`
 - Chromium plus its system libraries, so Playwright runs headless with no setup

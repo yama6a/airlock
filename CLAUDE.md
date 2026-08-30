@@ -138,8 +138,9 @@ Each cost real time to find. Do not re-derive them.
 - **The engine creates a missing bind-mount target as root**, so parents need chowning.
 - **`useradd` rejects large uids**, so `/etc/passwd` is written directly.
 - **A container filesystem write is discarded by `--rm`.** Anything that must survive goes in
-  a volume: config in `airlock-config`, package caches in `airlock-cache`. npm and the Go
-  module cache do not default under `~/.cache`, so the entrypoint redirects them.
+  a volume: config in `airlock-config`, package caches in `airlock-cache`, `~/.config` and so
+  the `gh` login in `airlock-state`. npm and the Go module cache do not default under
+  `~/.cache`, so the entrypoint redirects them.
 - **Chromium needs more than 64 MB of `/dev/shm`** or it dies on real pages, hence
   `--shm-size` on the run. Let `playwright install --with-deps` choose the apt packages rather
   than pinning a list that goes stale against the Playwright version.

@@ -71,8 +71,11 @@ fi
 # chown fails on an sshfs or 9p bind mount, so only image and volume paths can rely on it.
 own() { chown "$TARGET_UID:$TARGET_GID" "$@" 2>/dev/null || true; }
 
-mkdir -p "$HOME_DIR" "$CONFIG_DIR" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" "$HOME_DIR/.cache"
-own "$HOME_DIR" "$HOME_DIR/go" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" "$HOME_DIR/.cache"
+mkdir -p "$HOME_DIR" "$CONFIG_DIR" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" \
+  "$HOME_DIR/.cache" "$HOME_DIR/.config"
+# .cache and .config are volumes the engine creates owned by root, so chown before dropping.
+own "$HOME_DIR" "$HOME_DIR/go" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" \
+  "$HOME_DIR/.cache" "$HOME_DIR/.config"
 
 # The seed runs before the uid is known, so its files can land owned by someone else.
 if [[ "$(stat -c %u "$CONFIG_DIR" 2>/dev/null || echo 0)" != "$TARGET_UID" ]]; then

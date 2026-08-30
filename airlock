@@ -8,6 +8,7 @@ set -euo pipefail
 IMAGE="${AIRLOCK_IMAGE:-airlock:latest}"
 VOLUME="${AIRLOCK_VOLUME:-airlock-config}"
 CACHE_VOLUME="${AIRLOCK_CACHE_VOLUME:-airlock-cache}"
+STATE_VOLUME="${AIRLOCK_STATE_VOLUME:-airlock-state}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/airlock"
@@ -93,6 +94,8 @@ while [[ $# -gt 0 ]]; do
       fi
       "${AIRLOCK_ENGINE:-docker}" volume rm "$CACHE_VOLUME" >/dev/null 2>&1 \
         && log "removed volume $CACHE_VOLUME: npm, uv and go caches" || true
+      "${AIRLOCK_ENGINE:-docker}" volume rm "$STATE_VOLUME" >/dev/null 2>&1 \
+        && log "removed volume $STATE_VOLUME: ~/.config, including the gh login" || true
       for p in "$(dirname "$CONFIG_FILE")" "$CACHE_DIR"; do
         # Guarded because a bad edit upstream would make this an rm -rf of something else.
         case "$p" in */airlock) ;; *) log "refusing to remove $p"; continue ;; esac
@@ -117,7 +120,8 @@ usage: airlock [flags] [claude args...]
   --add-dir-ro DIR
                  the same, read-only, repeatable
   --reset        wipe everything persisted and exit: the volume holding the copied
-                 config, the login and session state, the remembered answers in
+                 config, the login and session state, the volume holding ~/.config
+                 and the logins of tools like gh, the remembered answers in
                  ~/.config/airlock, and the build stamp in ~/.cache/airlock.
                  Leaves the image. Does not start Claude.
   -h, --help     this
@@ -135,7 +139,8 @@ a different account or endpoint than the host does: airlock -e ANTHROPIC_BASE_UR
 Environment:
   AIRLOCK_HOME   container home; defaults to the host $HOME so absolute paths in
                  settings.json resolve
-  AIRLOCK_ENGINE, AIRLOCK_IMAGE, AIRLOCK_VOLUME, AIRLOCK_PLATFORM
+  AIRLOCK_ENGINE, AIRLOCK_IMAGE, AIRLOCK_VOLUME, AIRLOCK_CACHE_VOLUME,
+  AIRLOCK_STATE_VOLUME, AIRLOCK_PLATFORM
 EOF
       exit 0 ;;
     *) extra+=("$1"); shift ;;
@@ -188,6 +193,8 @@ shared_path "$WORKDIR" || die "$WORKDIR is outside the paths the runtime shares 
 mounts=(--mount "type=volume,src=$VOLUME,dst=$BOX_CLAUDE")
 # npx and uvx fetch an MCP server on every launch, so without this each session re-downloads.
 mounts+=(--mount "type=volume,src=$CACHE_VOLUME,dst=$BOX_HOME/.cache")
+# gh writes its token to ~/.config/gh, so without this every session starts logged out.
+mounts+=(--mount "type=volume,src=$STATE_VOLUME,dst=$BOX_HOME/.config")
 listed=""
 
 host_seed() {

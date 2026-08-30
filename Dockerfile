@@ -18,6 +18,8 @@ ARG K9S_VERSION=v0.51.0
 ARG KUSTOMIZE_VERSION=v5.8.1
 # renovate: datasource=github-releases depName=ahmetb/kubectx
 ARG KUBECTX_VERSION=v0.11.0
+# renovate: datasource=github-releases depName=yannh/kubeconform
+ARG KUBECONFORM_VERSION=v0.8.0
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.53.6
 # renovate: datasource=github-releases depName=cli/cli
@@ -102,6 +104,10 @@ RUN set -eux; \
     curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_${TARGETARCH}.tar.gz" \
       | tar -xz -C /tmp kustomize; \
     install -m 0755 /tmp/kustomize /usr/local/bin/kustomize; \
+    \
+    curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-${TARGETARCH}.tar.gz" \
+      | tar -xz -C /tmp kubeconform; \
+    install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform; \
     \
     curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/${KUBECTX_VERSION}/kubectx_${KUBECTX_VERSION}_linux_${alt_arch}.tar.gz" \
       | tar -xz -C /tmp kubectx; \
