@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
-ARG UV_VERSION=0.12.7
+ARG UV_VERSION=0.12.8
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 FROM ubuntu:26.04
