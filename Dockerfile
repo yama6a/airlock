@@ -23,7 +23,7 @@ ARG KUBECONFORM_VERSION=v0.8.0
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.53.6
 # renovate: datasource=github-releases depName=cli/cli
-ARG GH_VERSION=2.99.0
+ARG GH_VERSION=2.100.0
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.1
 # renovate: datasource=github-tags depName=nodejs/node
