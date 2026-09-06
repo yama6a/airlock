@@ -8,6 +8,8 @@ FROM ubuntu:26.04
 
 ARG TARGETARCH
 
+# renovate: datasource=npm depName=@anthropic-ai/claude-code
+ARG CLAUDE_VERSION=2.1.263
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.0
 # renovate: datasource=github-releases depName=helm/helm
@@ -157,7 +159,7 @@ RUN npx -y "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/* /root/.npm
 
 # Fixed path, not a user home, so the image carries no user and the entrypoint can pick one.
-RUN HOME=/opt/claude sh -c 'mkdir -p /opt/claude && curl -fsSL https://claude.ai/install.sh | bash' \
+RUN HOME=/opt/claude sh -c "mkdir -p /opt/claude && curl -fsSL https://claude.ai/install.sh | bash -s ${CLAUDE_VERSION}" \
     && ln -s /opt/claude/.local/bin/claude /usr/local/bin/claude \
     && chmod -R a+rX /opt/claude \
     && claude --version
