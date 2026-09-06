@@ -65,7 +65,7 @@ add_dir() {
 
 . "$SCRIPT_DIR/lib/seed.sh"
 
-do_build=0 do_config=0 mode=claude
+do_build=0 do_config=0 mode=claude backup_path=""
 extra=() user_envs=() add_paths=() add_ro=()
 env_names=""
 while [[ $# -gt 0 ]]; do
@@ -86,6 +86,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || die "--add-dir-ro needs a directory"
       add_dir "$2" 1; shift 2 ;;
     --add-dir-ro=*)    add_dir "${1#*=}" 1; shift ;;
+    --import-config-backup)
+      [[ $# -ge 2 ]] || die "--import-config-backup needs a path"
+      backup_path="$2"; shift 2 ;;
+    --import-config-backup=*) backup_path="${1#--import-config-backup=}"; shift ;;
     --reset)
       if "${AIRLOCK_ENGINE:-docker}" volume rm "$VOLUME" >/dev/null 2>&1; then
         log "removed volume $VOLUME: copied config, the login, and session state"
@@ -119,6 +123,9 @@ usage: airlock [flags] [claude args...]
                  repeatable. --add-dir is the same flag. Mounted at its host path.
   --add-dir-ro DIR
                  the same, read-only, repeatable
+  --import-config-backup FILE
+                 replace the config volume's contents with FILE, a tar (optionally
+                 compressed) of a prior volume, then exit. Discards what is there now.
   --reset        wipe everything persisted and exit: the volume holding the copied
                  config, the login and session state, the volume holding ~/.config
                  and the logins of tools like gh, the remembered answers in
@@ -169,6 +176,11 @@ if [[ "$do_build" == 1 ]] || ! "$ENGINE" image inspect "$IMAGE" >/dev/null 2>&1;
 elif [[ -f "$built_stamp" ]] \
   && [[ -n "$(find "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR/entrypoint.sh" -newer "$built_stamp" 2>/dev/null)" ]]; then
   log "Dockerfile or entrypoint changed since the last build; run --build"
+fi
+
+if [[ -n "$backup_path" ]]; then
+  seed_import_backup "$backup_path"
+  exit 0
 fi
 
 seed_load_prefs

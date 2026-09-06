@@ -292,6 +292,22 @@ seed_apply() {
   return $rc
 }
 
+# Wipes first: a stale file from the current volume would otherwise survive the restore.
+seed_import_backup() {
+  local path="$1"
+  [[ -f "$path" ]] || die "--import-config-backup $path: not a file"
+  log "importing $path into volume $VOLUME, discarding its current contents"
+  "$ENGINE" run --rm -i \
+      --mount "type=volume,src=$VOLUME,dst=/seed" \
+      -e "OWNER=$(id -u):$(id -g)" \
+      --entrypoint sh "$IMAGE" -c '
+        set -e
+        find /seed -mindepth 1 -delete
+        tar -xf - -C /seed --no-same-owner
+        chown -R "$OWNER" /seed
+      ' < "$path"
+}
+
 seed_interview() {
   seed_detect
   if [[ ${#i_name[@]} -eq 0 ]]; then
