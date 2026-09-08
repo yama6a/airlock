@@ -35,7 +35,7 @@ ARG GOPLS_VERSION=v0.23.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
 ARG OAPI_CODEGEN_VERSION=v2.8.0
 # renovate: datasource=go depName=mvdan.cc/gofumpt
-ARG GOFUMPT_VERSION=v0.11.0
+ARG GOFUMPT_VERSION=v0.12.0
 # renovate: datasource=go depName=golang.org/x/vuln
 ARG GOVULNCHECK_VERSION=v1.7.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
