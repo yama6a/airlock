@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
-ARG UV_VERSION=0.12.11
+ARG UV_VERSION=0.12.12
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 FROM ubuntu:26.04
@@ -9,7 +9,7 @@ FROM ubuntu:26.04
 ARG TARGETARCH
 
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.266
+ARG CLAUDE_VERSION=2.1.267
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.0
 # renovate: datasource=github-releases depName=helm/helm
@@ -29,7 +29,7 @@ ARG GH_VERSION=2.100.0
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.1
 # renovate: datasource=github-tags depName=nodejs/node
-ARG NODE_VERSION=v26.8.1
+ARG NODE_VERSION=v26.8.2
 # renovate: datasource=go depName=golang.org/x/tools/gopls
 ARG GOPLS_VERSION=v0.23.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
