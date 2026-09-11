@@ -6,21 +6,17 @@
   //                   see what a curl URL further down does with them
   // Cadence is the cron in .github/workflows/renovate.yaml, not an internal `schedule`, so a manual
   // workflow_dispatch works too.
+  //
+  // The shared preset carries the grouping, automerge and digest-pinning rules. Only what is specific
+  // to this repo lives below.
+  // Nothing live moves when the combined PR lands: it only changes what the next `airlock --build`
+  // produces, and an already built local image keeps working until then. The `build` job is what makes
+  // that safe, since a bumped version whose download URL no longer exists fails there rather than on
+  // someone's laptop.
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
-  extends: [
-    "config:recommended",
-    ":dependencyDashboard", // one issue listing every pending/failed update (needs repo Issues enabled)
-    "helpers:pinGitHubActionDigestsToSemver", // action pins carry a readable version alongside the digest
-  ],
-  prConcurrentLimit: 5,
-  prHourlyLimit: 0, // no hourly throttle
-  dependencyDashboardTitle: "Renovate dependency dashboard",
+  extends: ["github>yama6a/gha:default.json5"],
 
-  // Automerge through Renovate's own API call, not GitHub's native auto-merge. Renovate waits for a PR's
-  // required CI checks by default, and branch protection enforces them on the merge call too, so the combined
-  // PR lands on a LATER run once CI is green. That is why the cron runs every 3h rather than weekly.
-  // platformAutomerge stays false to keep the merge on Renovate's side.
-  platformAutomerge: false,
+  prConcurrentLimit: 5,
 
   customManagers: [
     {
@@ -37,25 +33,8 @@
   ],
 
   packageRules: [
-    {
-      // ONE combined, auto-merged PR for every NON-major update, gated on the required CI checks. Nothing
-      // live moves when it lands: it only changes what the next `airlock --build` produces, and an already
-      // built local image keeps working until then. The `build` job is what makes this safe, since a bumped
-      // version whose download URL no longer exists fails there rather than on someone's laptop.
-      description: "combine all non-major updates into one auto-merged PR",
-      matchUpdateTypes: ["minor", "patch", "digest", "pin"],
-      groupName: "all non-major dependencies",
-      automerge: true,
-    },
-    // MAJOR updates get their own PR each, which is Renovate's default, so no rule below does it. That keeps
-    // a breaking bump reviewed in isolation.
-    {
-      // Pin action refs to commit digests, so a moving tag cannot swap the action's code under us. The
-      // semver-comment helper above keeps a readable version beside each digest.
-      description: "pin github action refs to digests",
-      matchManagers: ["github-actions"],
-      pinDigests: true,
-    },
+    // MAJOR updates get their own PR each, which is Renovate's default. That keeps a breaking bump
+    // reviewed in isolation.
     {
       // Both release tags are v-prefixed and the ARGs are not, because the download URLs build both forms.
       description: "gh and golangci-lint releases are v-prefixed, the ARGs are not",
