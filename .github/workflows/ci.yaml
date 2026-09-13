@@ -18,7 +18,12 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: shellcheck airlock lib/seed.sh entrypoint.sh test/smoke.sh
+      # severity style, not the action's warning default: this repo has always gated on everything
+      # shellcheck reports.
+      - uses: yama6a/gha/.github/actions/shellcheck@v1
+        with:
+          glob: airlock lib/seed.sh entrypoint.sh test/smoke.sh
+          severity: style
 
   # macos-latest because the launcher must survive Apple's bash 3.2; ubuntu's bash 5 accepts
   # constructs that would then fail on every user's machine.
