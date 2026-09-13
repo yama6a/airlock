@@ -116,7 +116,7 @@ seed_out="$(
   HOST_CLAUDE="$FIX/dot"; HOST_CLAUDE_JSON="$FIX/dot/.claude.json"
   seed_detect
   for ((i = 0; i < ${#i_name[@]}; i++)); do
-    [[ "${i_kind[$i]}" == mount ]] || i_on[$i]=1     # everything copyable, including MCP
+    [[ "${i_kind[$i]}" == mount ]] || i_on[i]=1     # everything copyable, including MCP
   done
   seed_apply
 )"

@@ -72,8 +72,8 @@ seed_in_list() {
 
 seed_add() {
   local n=${#i_name[@]}
-  i_name[$n]="$1"; i_label[$n]="$2"; i_size[$n]="$3"
-  i_on[$n]="$4"; i_kind[$n]="$5"; i_src[$n]="$6"
+  i_name[n]="$1"; i_label[n]="$2"; i_size[n]="$3"
+  i_on[n]="$4"; i_kind[n]="$5"; i_src[n]="$6"
 }
 
 # Every settings key that can name an executable. The hooks walk covers all events.
@@ -177,8 +177,8 @@ seed_picker() {
     read -r reply || reply=""
     case "$reply" in
       "") return 0 ;;
-      a|A) for ((idx = 0; idx < n; idx++)); do i_on[$idx]=1; done ;;
-      n|N) for ((idx = 0; idx < n; idx++)); do i_on[$idx]=0; done ;;
+      a|A) for ((idx = 0; idx < n; idx++)); do i_on[idx]=1; done ;;
+      n|N) for ((idx = 0; idx < n; idx++)); do i_on[idx]=0; done ;;
       q|Q) return 1 ;;
       *)
         for tok in $reply; do
@@ -188,8 +188,8 @@ seed_picker() {
           idx=$((tok - 1))
           if [[ "$idx" -lt 0 || "$idx" -ge "$n" ]]; then
             log "out of range: $tok"
-          elif [[ "${i_on[$idx]}" == 1 ]]; then i_on[$idx]=0
-          else i_on[$idx]=1
+          elif [[ "${i_on[$idx]}" == 1 ]]; then i_on[idx]=0
+          else i_on[idx]=1
           fi
         done ;;
     esac
