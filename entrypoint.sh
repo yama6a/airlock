@@ -3,7 +3,10 @@
 set -euo pipefail
 
 log() { echo "airlock: $*" >&2; }
-die() { log "$*"; exit 1; }
+die() {
+  log "$*"
+  exit 1
+}
 
 USER_NAME="${AIRLOCK_USER:-dev}"
 HOME_DIR="${AIRLOCK_HOME:-/home/$USER_NAME}"
@@ -16,10 +19,10 @@ SEED_DIR=/mnt/seed
 TARGET_UID=""
 TARGET_GID=""
 if [[ -d "$WORKDIR" ]]; then
-  probe_uid="$(stat -c %u "$WORKDIR" 2>/dev/null || true)"
-  probe_gid="$(stat -c %g "$WORKDIR" 2>/dev/null || true)"
+  probe_uid="$(stat -c %u "$WORKDIR" 2> /dev/null || true)"
+  probe_gid="$(stat -c %g "$WORKDIR" 2> /dev/null || true)"
   if [[ -n "$probe_uid" && "$probe_uid" != "0" ]] && gosu "$probe_uid" test -w "$WORKDIR"; then
-    TARGET_UID="$probe_uid"                       # writable, so the files are really ours
+    TARGET_UID="$probe_uid" # writable, so the files are really ours
     TARGET_GID="$probe_gid"
   fi
 fi
@@ -33,7 +36,7 @@ TARGET_GID="${TARGET_GID:-$TARGET_UID}"
 [[ "$TARGET_UID" == "0" ]] && die "refusing uid 0; --dangerously-skip-permissions requires non-root"
 [[ "$TARGET_UID" -lt 100 ]] && die "refusing uid $TARGET_UID; it overlaps the system range"
 
-replace() { cat "$1" > "$2" && rm -f "$1"; }      # keeps the target's inode and mode
+replace() { cat "$1" > "$2" && rm -f "$1"; } # keeps the target's inode and mode
 
 # useradd rejects uids above UID_MAX, so write the databases directly.
 group_name="$(awk -F: -v g="$TARGET_GID" '$3 == g { print $1; exit }' /etc/group)"
@@ -60,7 +63,7 @@ add_to_group() {
 }
 
 if [[ -S /var/run/docker.sock ]]; then
-  sock_gid="$(stat -c %g /var/run/docker.sock)"   # differs per runtime
+  sock_gid="$(stat -c %g /var/run/docker.sock)" # differs per runtime
   if [[ "$sock_gid" != "0" ]]; then
     awk -F: -v g="$sock_gid" '$3 == g { found = 1 } END { exit !found }' /etc/group \
       || printf 'dockerhost:x:%s:\n' "$sock_gid" >> /etc/group
@@ -69,7 +72,7 @@ if [[ -S /var/run/docker.sock ]]; then
 fi
 
 # chown fails on an sshfs or 9p bind mount, so only image and volume paths can rely on it.
-own() { chown "$TARGET_UID:$TARGET_GID" "$@" 2>/dev/null || true; }
+own() { chown "$TARGET_UID:$TARGET_GID" "$@" 2> /dev/null || true; }
 
 mkdir -p "$HOME_DIR" "$CONFIG_DIR" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" \
   "$HOME_DIR/.cache" "$HOME_DIR/.config"
@@ -78,8 +81,8 @@ own "$HOME_DIR" "$HOME_DIR/go" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" \
   "$HOME_DIR/.cache" "$HOME_DIR/.config"
 
 # The seed runs before the uid is known, so its files can land owned by someone else.
-if [[ "$(stat -c %u "$CONFIG_DIR" 2>/dev/null || echo 0)" != "$TARGET_UID" ]]; then
-  chown -R "$TARGET_UID:$TARGET_GID" "$CONFIG_DIR" 2>/dev/null || own "$CONFIG_DIR"
+if [[ "$(stat -c %u "$CONFIG_DIR" 2> /dev/null || echo 0)" != "$TARGET_UID" ]]; then
+  chown -R "$TARGET_UID:$TARGET_GID" "$CONFIG_DIR" 2> /dev/null || own "$CONFIG_DIR"
 fi
 
 # Copied, not bound, so writes stay off the host and ssh gets a writable known_hosts.
@@ -96,8 +99,8 @@ seed_file() {
   install -D -o "$TARGET_UID" -g "$TARGET_GID" -m "${3:-0644}" \
     "$SEED_DIR/$1" "$HOME_DIR/$2"
 }
-seed_file gitconfig           .gitconfig
-seed_file gitignore           .gitignore
+seed_file gitconfig .gitconfig
+seed_file gitignore .gitignore
 seed_file git_allowed_signers .git_allowed_signers
 
 if [[ "${AIRLOCK_COPY_KUBECONFIG:-1}" != 0 ]]; then
@@ -108,43 +111,50 @@ fi
 
 gitcfg="$HOME_DIR/.gitconfig"
 gitc() { git -C / config -f "$gitcfg" "$@"; }
-[[ -f "$gitcfg" ]] || { : > "$gitcfg"; own "$gitcfg"; }
+[[ -f "$gitcfg" ]] || {
+  : > "$gitcfg"
+  own "$gitcfg"
+}
 
 # Runtimes that pass the host uid through trip git's dubious-ownership check.
-gitc --replace-all safe.directory "$WORKDIR" 2>/dev/null || true
+gitc --replace-all safe.directory "$WORKDIR" 2> /dev/null || true
 while IFS= read -r d; do
   [[ -n "$d" ]] || continue
-  gitc --add safe.directory "$d" 2>/dev/null || true
+  gitc --add safe.directory "$d" 2> /dev/null || true
 done <<< "${AIRLOCK_ADD_DIRS:-}"
 
 # ssh-keygen reads passphrases from /dev/tty even with stdin redirected, so force askpass.
-nopass() { SSH_ASKPASS=/bin/false SSH_ASKPASS_REQUIRE=force DISPLAY='' "$@" </dev/null; }
+nopass() { SSH_ASKPASS=/bin/false SSH_ASKPASS_REQUIRE=force DISPLAY='' "$@" < /dev/null; }
 
 pubkey_fingerprint() {
-  nopass ssh-keygen -yf "$1" 2>/dev/null \
-    | ssh-keygen -lf /dev/stdin 2>/dev/null | awk '{print $2}' || true
+  nopass ssh-keygen -yf "$1" 2> /dev/null \
+    | ssh-keygen -lf /dev/stdin 2> /dev/null | awk '{print $2}' || true
 }
 
 # No runtime forwards ssh-agent in, so a literal ssh signingkey must point at a key file.
 if [[ "${AIRLOCK_FIX_SIGNING:-1}" != 0 ]]; then
-  signkey="$(gitc --get user.signingkey 2>/dev/null || true)"
+  signkey="$(gitc --get user.signingkey 2> /dev/null || true)"
   if [[ "$signkey" == ssh-* || "$signkey" == ecdsa-* || "$signkey" == sk-* ]]; then
-    pub="$(mktemp)"; printf '%s\n' "$signkey" > "$pub"
-    want="$(ssh-keygen -lf "$pub" 2>/dev/null | awk '{print $2}' || true)"
+    pub="$(mktemp)"
+    printf '%s\n' "$signkey" > "$pub"
+    want="$(ssh-keygen -lf "$pub" 2> /dev/null | awk '{print $2}' || true)"
     rm -f "$pub"
     found=""
     if [[ -n "$want" ]]; then
       for k in "$HOME_DIR"/.ssh/*; do
         [[ -f "$k" ]] || continue
         case "$k" in *.pub) continue ;; esac
-        head -1 "$k" 2>/dev/null | grep -q 'PRIVATE KEY' || continue
-        got="$(pubkey_fingerprint "$k")"          # empty when encrypted, so it is skipped
-        if [[ -n "$got" && "$got" == "$want" ]]; then found="$k"; break; fi
+        head -1 "$k" 2> /dev/null | grep -q 'PRIVATE KEY' || continue
+        got="$(pubkey_fingerprint "$k")" # empty when encrypted, so it is skipped
+        if [[ -n "$got" && "$got" == "$want" ]]; then
+          found="$k"
+          break
+        fi
       done
     fi
     if [[ -n "$found" ]]; then
-      if [[ ! -f "${found}.pub" ]]; then          # ssh-keygen wants a <key>.pub sidecar
-        nopass ssh-keygen -yf "$found" > "${found}.pub" 2>/dev/null \
+      if [[ ! -f "${found}.pub" ]]; then # ssh-keygen wants a <key>.pub sidecar
+        nopass ssh-keygen -yf "$found" > "${found}.pub" 2> /dev/null \
           && own "${found}.pub" && chmod 0644 "${found}.pub"
       fi
       gitc user.signingkey "$found"
@@ -161,7 +171,7 @@ mcp_seed="$CONFIG_DIR/.mcp-seed.json"
 if [[ ! -f "$claude_json" ]]; then
   base='{"hasCompletedOnboarding":true,"autoUpdates":false}'
   # Only on creation, so a `claude mcp add` in here is not undone on the next start.
-  if [[ -f "$mcp_seed" ]] && jq -e . "$mcp_seed" >/dev/null 2>&1; then
+  if [[ -f "$mcp_seed" ]] && jq -e . "$mcp_seed" > /dev/null 2>&1; then
     jq -n --argjson base "$base" --slurpfile mcp "$mcp_seed" '$base + $mcp[0]' > "$claude_json"
   else
     printf '%s\n' "$base" > "$claude_json"
@@ -181,12 +191,12 @@ if [[ -f "$CONFIG_DIR/settings.json" ]]; then
     [(.statusLine.command // empty),
      (.hooks // {} | to_entries[].value[]?.hooks[]?.command // empty)]
     | map(split(" ")[0]) | .[]
-  ' "$CONFIG_DIR/settings.json" 2>/dev/null \
+  ' "$CONFIG_DIR/settings.json" 2> /dev/null \
     | while read -r c; do
-        case "$c" in
-          /*) [[ -e "$c" ]] || printf '%s ' "$c" ;;
-        esac
-      done)"
+      case "$c" in
+        /*) [[ -e "$c" ]] || printf '%s ' "$c" ;;
+      esac
+    done)"
   [[ -n "$missing" ]] && log "settings.json references paths absent here: $missing"
 fi
 
