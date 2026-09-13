@@ -81,6 +81,9 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && apt-get install -y --no-install-recommends "postgresql-client-${PG_MAJOR}" \
     && rm -rf /var/lib/apt/lists/*
 
+# set -eux does not cover a failed curl on the left of a pipe: tar would succeed on empty input.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # kubectx ships x86_64 and node ships x64 where the rest ship amd64.
 RUN set -eux; \
     case "${TARGETARCH}" in \

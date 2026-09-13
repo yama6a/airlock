@@ -50,7 +50,7 @@ seed_save_prefs() {
 
 # Apparent bytes: du reports disk blocks, so every small file would read as 4K.
 seed_size() {
-  find -L "$1" -type f -print0 2>/dev/null | xargs -0 wc -c 2>/dev/null \
+  find -L "$1" -type f -print0 2> /dev/null | xargs -0 wc -c 2> /dev/null \
     | awk '$2 != "total" { s += $1 } END {
         if (s >= 1048576) printf "%.1fM", s / 1048576
         else if (s >= 1024) printf "%.0fK", s / 1024
@@ -60,7 +60,7 @@ seed_size() {
 
 seed_count() {
   local n
-  n=$(find -L "$1" -type f 2>/dev/null | wc -l | tr -d ' ')
+  n=$(find -L "$1" -type f 2> /dev/null | wc -l | tr -d ' ')
   [[ "$n" == 1 ]] && echo "1 file" || echo "$n files"
 }
 
@@ -72,8 +72,12 @@ seed_in_list() {
 
 seed_add() {
   local n=${#i_name[@]}
-  i_name[$n]="$1"; i_label[$n]="$2"; i_size[$n]="$3"
-  i_on[$n]="$4"; i_kind[$n]="$5"; i_src[$n]="$6"
+  i_name[n]="$1"
+  i_label[n]="$2"
+  i_size[n]="$3"
+  i_on[n]="$4"
+  i_kind[n]="$5"
+  i_src[n]="$6"
 }
 
 # Every settings key that can name an executable. The hooks walk covers all events.
@@ -89,13 +93,20 @@ SEED_CMD_JQ='
 '
 
 seed_detect() {
-  i_name=(); i_label=(); i_size=(); i_on=(); i_kind=(); i_src=()
+  i_name=()
+  i_label=()
+  i_size=()
+  i_on=()
+  i_kind=()
+  i_src=()
   local line name def kind path
 
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
-    name=${line%%:*}; line=${line#*:}
-    def=${line%%:*}; kind=${line#*:}
+    name=${line%%:*}
+    line=${line#*:}
+    def=${line%%:*}
+    kind=${line#*:}
     path="$HOST_CLAUDE/$name"
     [[ -e "$path" ]] || continue
     [[ "$SEED_HAVE_PREFS" == 1 ]] && { seed_in_list "$name" "$COPY_ITEMS" && def=1 || def=0; }
@@ -108,17 +119,17 @@ seed_detect() {
 
   seed_detect_scripts
   seed_detect_mcp
-  seed_add git    ".gitconfig, .gitignore, allowed_signers" "" "$MOUNT_GIT"    mount git
-  seed_add kube   ".kube/config"                            "" "$MOUNT_KUBE"   mount kube
-  seed_add ssh    ".ssh  private keys"                      "" "$MOUNT_SSH"    mount ssh
-  seed_add socket "docker socket  root on the host VM"      "" "$MOUNT_DOCKER_SOCK" mount socket
+  seed_add git ".gitconfig, .gitignore, allowed_signers" "" "$MOUNT_GIT" mount git
+  seed_add kube ".kube/config" "" "$MOUNT_KUBE" mount kube
+  seed_add ssh ".ssh  private keys" "" "$MOUNT_SSH" mount ssh
+  seed_add socket "docker socket  root on the host VM" "" "$MOUNT_DOCKER_SOCK" mount socket
 }
 
 # These live outside ~/.claude, so the tar of the config dir would miss them.
 seed_detect_scripts() {
   local settings="$HOST_CLAUDE/settings.json" cmd def
   [[ -f "$settings" ]] || return 0
-  if ! command -v jq >/dev/null; then
+  if ! command -v jq > /dev/null; then
     log "jq not found, so scripts referenced from settings.json are not detected"
     return 0
   fi
@@ -129,7 +140,7 @@ seed_detect_scripts() {
     def=1
     [[ "$SEED_HAVE_PREFS" == 1 ]] && { seed_in_list "$cmd" "$COPY_ITEMS" && def=1 || def=0; }
     seed_add "$cmd" "$cmd" "$(seed_size "$cmd")" "$def" script "$cmd"
-  done < <(jq -r "$SEED_CMD_JQ" "$settings" 2>/dev/null)
+  done < <(jq -r "$SEED_CMD_JQ" "$settings" 2> /dev/null)
 }
 
 # The rest of .claude.json is identity and caches, so only this key is ever offered.
@@ -138,9 +149,9 @@ SEED_MCP_FILE=.mcp-seed.json
 seed_detect_mcp() {
   local n def=0
   [[ -f "$HOST_CLAUDE_JSON" ]] || return 0
-  command -v jq >/dev/null || return 0
-  n=$(jq -r '.mcpServers // {} | length' "$HOST_CLAUDE_JSON" 2>/dev/null || echo 0)
-  case "$n" in ''|*[!0-9]*) return 0 ;; esac
+  command -v jq > /dev/null || return 0
+  n=$(jq -r '.mcpServers // {} | length' "$HOST_CLAUDE_JSON" 2> /dev/null || echo 0)
+  case "$n" in '' | *[!0-9]*) return 0 ;; esac
   [[ "$n" -gt 0 ]] || return 0
   [[ "$SEED_HAVE_PREFS" == 1 ]] && { seed_in_list mcpServers "$COPY_ITEMS" && def=1 || def=0; }
   seed_add mcpServers "MCP servers  $n, may hold API keys" "" "$def" mcp "$HOST_CLAUDE_JSON"
@@ -154,10 +165,22 @@ seed_render() {
     if [[ "${i_kind[$idx]}" != "$section" ]]; then
       section="${i_kind[$idx]}"
       case "$section" in
-        config) echo; echo "  copy into the container volume" ;;
-        script) echo; echo "  scripts your settings point at, copied alongside" ;;
-        mcp)    echo; echo "  the only part of .claude.json that can be copied" ;;
-        mount)  echo; echo "  mount from the host on every run" ;;
+        config)
+          echo
+          echo "  copy into the container volume"
+          ;;
+        script)
+          echo
+          echo "  scripts your settings point at, copied alongside"
+          ;;
+        mcp)
+          echo
+          echo "  the only part of .claude.json that can be copied"
+          ;;
+        mount)
+          echo
+          echo "  mount from the host on every run"
+          ;;
       esac
     fi
     [[ "${i_on[$idx]}" == 1 ]] && mark=x || mark=" "
@@ -177,21 +200,27 @@ seed_picker() {
     read -r reply || reply=""
     case "$reply" in
       "") return 0 ;;
-      a|A) for ((idx = 0; idx < n; idx++)); do i_on[$idx]=1; done ;;
-      n|N) for ((idx = 0; idx < n; idx++)); do i_on[$idx]=0; done ;;
-      q|Q) return 1 ;;
+      a | A) for ((idx = 0; idx < n; idx++)); do i_on[idx]=1; done ;;
+      n | N) for ((idx = 0; idx < n; idx++)); do i_on[idx]=0; done ;;
+      q | Q) return 1 ;;
       *)
         for tok in $reply; do
           case "$tok" in
-            ''|*[!0-9]*) log "not a number: $tok"; continue ;;
+            '' | *[!0-9]*)
+              log "not a number: $tok"
+              continue
+              ;;
           esac
           idx=$((tok - 1))
           if [[ "$idx" -lt 0 || "$idx" -ge "$n" ]]; then
             log "out of range: $tok"
-          elif [[ "${i_on[$idx]}" == 1 ]]; then i_on[$idx]=0
-          else i_on[$idx]=1
+          elif [[ "${i_on[$idx]}" == 1 ]]; then
+            i_on[idx]=0
+          else
+            i_on[idx]=1
           fi
-        done ;;
+        done
+        ;;
     esac
   done
 }
@@ -199,7 +228,7 @@ seed_picker() {
 # bsdtar stores a dangling link as a link and exits 0 even under --dereference, so drop them.
 # -L both descends into a symlinked config dir and leaves only broken links as -type l.
 seed_dangling() {
-  find -L "$@" -type l -print 2>/dev/null
+  find -L "$@" -type l -print 2> /dev/null
 }
 
 seed_apply() {
@@ -215,14 +244,24 @@ seed_apply() {
       continue
     fi
     case "${i_kind[$idx]}" in
-      config) names+=("${i_name[$idx]}"); chosen="$chosen ${i_name[$idx]}" ;;
-      script) scripts+=("${i_src[$idx]}"); chosen="$chosen ${i_name[$idx]}" ;;
-      mcp)    mcp=1; chosen="$chosen ${i_name[$idx]}" ;;
+      config)
+        names+=("${i_name[$idx]}")
+        chosen="$chosen ${i_name[$idx]}"
+        ;;
+      script)
+        scripts+=("${i_src[$idx]}")
+        chosen="$chosen ${i_name[$idx]}"
+        ;;
+      mcp)
+        mcp=1
+        chosen="$chosen ${i_name[$idx]}"
+        ;;
       mount)
         case "${i_name[$idx]}" in
           git) MOUNT_GIT=1 ;; kube) MOUNT_KUBE=1 ;;
           ssh) MOUNT_SSH=1 ;; socket) MOUNT_DOCKER_SOCK=1 ;;
-        esac ;;
+        esac
+        ;;
     esac
   done
 
@@ -253,15 +292,18 @@ seed_apply() {
   if [[ ${#scripts[@]} -gt 0 ]]; then
     mkdir -p "$stage/host-scripts"
     for s in "${scripts[@]}"; do
-      install -m 0755 "$s" "$stage/host-scripts/" 2>/dev/null \
-        || { log "cannot stage $s"; continue; }
+      install -m 0755 "$s" "$stage/host-scripts/" 2> /dev/null \
+        || {
+          log "cannot stage $s"
+          continue
+        }
       sed_exprs="$sed_exprs;s|$s|$BOX_CLAUDE/host-scripts/$(basename "$s")|g"
     done
     tar_args+=(-C "$stage" host-scripts)
   fi
   if [[ "$mcp" == 1 ]]; then
-    if jq '{mcpServers}' "$HOST_CLAUDE_JSON" > "$stage/$SEED_MCP_FILE" 2>/dev/null; then
-      chmod 0600 "$stage/$SEED_MCP_FILE"           # the definitions may hold API keys
+    if jq '{mcpServers}' "$HOST_CLAUDE_JSON" > "$stage/$SEED_MCP_FILE" 2> /dev/null; then
+      chmod 0600 "$stage/$SEED_MCP_FILE" # the definitions may hold API keys
       tar_args+=(-C "$stage" "$SEED_MCP_FILE")
     else
       log "cannot read mcpServers from $HOST_CLAUDE_JSON"
@@ -271,13 +313,13 @@ seed_apply() {
   log "seeding volume $VOLUME"
   # Never -L: to GNU tar that is --tape-length and it consumes an argument.
   COPYFILE_DISABLE=1 tar --dereference --no-mac-metadata --no-xattrs --no-fflags \
-      -cf - "${tar_args[@]}" \
+    -cf - "${tar_args[@]}" \
     | "$ENGINE" run --rm -i \
-        --mount "type=volume,src=$VOLUME,dst=/seed" \
-        -e "SED_EXPRS=${sed_exprs#;}" \
-        -e "DROP=$drop" \
-        -e "OWNER=$(id -u):$(id -g)" \
-        --entrypoint sh "$IMAGE" -c '
+      --mount "type=volume,src=$VOLUME,dst=/seed" \
+      -e "SED_EXPRS=${sed_exprs#;}" \
+      -e "DROP=$drop" \
+      -e "OWNER=$(id -u):$(id -g)" \
+      --entrypoint sh "$IMAGE" -c '
           set -e
           # Only ever names the launcher offered, so credentials and .claude.json are safe.
           for d in $DROP; do rm -rf "/seed/$d"; done
@@ -298,9 +340,9 @@ seed_import_backup() {
   [[ -f "$path" ]] || die "--import-config-backup $path: not a file"
   log "importing $path into volume $VOLUME, discarding its current contents"
   "$ENGINE" run --rm -i \
-      --mount "type=volume,src=$VOLUME,dst=/seed" \
-      -e "OWNER=$(id -u):$(id -g)" \
-      --entrypoint sh "$IMAGE" -c '
+    --mount "type=volume,src=$VOLUME,dst=/seed" \
+    -e "OWNER=$(id -u):$(id -g)" \
+    --entrypoint sh "$IMAGE" -c '
         set -e
         find /seed -mindepth 1 -delete
         tar -xf - -C /seed --no-same-owner

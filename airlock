@@ -2,7 +2,10 @@
 # Runs Claude Code in a container with its own config and its own login. Stock bash 3.2.
 set -euo pipefail
 
-[[ "$(uname -s)" == Darwin ]] || { echo "airlock: macOS only" >&2; exit 1; }
+[[ "$(uname -s)" == Darwin ]] || {
+  echo "airlock: macOS only" >&2
+  exit 1
+}
 
 # ---- knobs ----
 IMAGE="${AIRLOCK_IMAGE:-airlock:latest}"
@@ -22,12 +25,15 @@ BOX_HOME="${AIRLOCK_HOME:-$HOST_HOME}"
 BOX_CLAUDE="$BOX_HOME/.claude"
 
 log() { echo "airlock: $*" >&2; }
-die() { log "$*"; exit 1; }
+die() {
+  log "$*"
+  exit 1
+}
 
 # Outside these a bind mounts empty with no error, which is harder to spot than a failure.
 shared_path() {
   case "$1" in
-    "$HOST_HOME"/*|/Users/*|/Volumes/*) return 0 ;;
+    "$HOST_HOME"/* | /Users/* | /Volumes/*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -36,13 +42,16 @@ env_add() {
   local spec="$1" name val
   name="${spec%%=*}"
   case "$name" in
-    ""|[!A-Za-z_]*|*[!A-Za-z0-9_]*) die "--env $spec: '$name' is not a variable name" ;;
+    "" | [!A-Za-z_]* | *[!A-Za-z0-9_]*) die "--env $spec: '$name' is not a variable name" ;;
   esac
   if [[ "$spec" == *=* ]]; then
     user_envs+=(-e "$spec")
   else
     eval "val=\${$name+x}"
-    [[ -n "$val" ]] || { log "--env $name is unset on the host, skipped"; return; }
+    [[ -n "$val" ]] || {
+      log "--env $name is unset on the host, skipped"
+      return
+    }
     eval "user_envs+=(-e \"\$name=\${$name}\")"
   fi
   env_names="$env_names $name"
@@ -51,7 +60,7 @@ env_add() {
 # Mounted at their host path, so a path claude prints is the same path on the host.
 add_dir() {
   local spec="$1" ro="$2" p i
-  p="$(cd -- "$spec" 2>/dev/null && pwd -P)" || die "--add-dir $spec: not a directory"
+  p="$(cd -- "$spec" 2> /dev/null && pwd -P)" || die "--add-dir $spec: not a directory"
   [[ "$p" == "/" ]] && die "--add-dir: refusing /"
   [[ "$p" == "$HOST_HOME" ]] && die "--add-dir: refusing \$HOME"
   [[ "$p" == "$HOST_CLAUDE" || "$p" == "$HOST_CLAUDE"/* ]] \
@@ -60,7 +69,8 @@ add_dir() {
   for ((i = 0; i < ${#add_paths[@]}; i++)); do
     [[ "${add_paths[$i]}" == "$p" ]] && return 0
   done
-  add_paths+=("$p"); add_ro+=("$ro")
+  add_paths+=("$p")
+  add_ro+=("$ro")
 }
 
 . "$SCRIPT_DIR/lib/seed.sh"
@@ -70,45 +80,82 @@ extra=() user_envs=() add_paths=() add_ro=()
 env_names=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --build|--rebuild) do_build=1; shift ;;
-    --config)          do_config=1; shift ;;
-    --shell)           mode=shell; shift ;;
-    --no-yolo)         mode=plain; shift ;;
-    -e|--env)
+    --build | --rebuild)
+      do_build=1
+      shift
+      ;;
+    --config)
+      do_config=1
+      shift
+      ;;
+    --shell)
+      mode=shell
+      shift
+      ;;
+    --no-yolo)
+      mode=plain
+      shift
+      ;;
+    -e | --env)
       [[ $# -ge 2 ]] || die "--env needs NAME=value or NAME"
-      env_add "$2"; shift 2 ;;
-    --env=*)           env_add "${1#--env=}"; shift ;;
-    --add-dir|--add-dir-rw)
+      env_add "$2"
+      shift 2
+      ;;
+    --env=*)
+      env_add "${1#--env=}"
+      shift
+      ;;
+    --add-dir | --add-dir-rw)
       [[ $# -ge 2 ]] || die "$1 needs a directory"
-      add_dir "$2" 0; shift 2 ;;
-    --add-dir=*|--add-dir-rw=*) add_dir "${1#*=}" 0; shift ;;
+      add_dir "$2" 0
+      shift 2
+      ;;
+    --add-dir=* | --add-dir-rw=*)
+      add_dir "${1#*=}" 0
+      shift
+      ;;
     --add-dir-ro)
       [[ $# -ge 2 ]] || die "--add-dir-ro needs a directory"
-      add_dir "$2" 1; shift 2 ;;
-    --add-dir-ro=*)    add_dir "${1#*=}" 1; shift ;;
+      add_dir "$2" 1
+      shift 2
+      ;;
+    --add-dir-ro=*)
+      add_dir "${1#*=}" 1
+      shift
+      ;;
     --import-config-backup)
       [[ $# -ge 2 ]] || die "--import-config-backup needs a path"
-      backup_path="$2"; shift 2 ;;
-    --import-config-backup=*) backup_path="${1#--import-config-backup=}"; shift ;;
+      backup_path="$2"
+      shift 2
+      ;;
+    --import-config-backup=*)
+      backup_path="${1#--import-config-backup=}"
+      shift
+      ;;
     --reset)
-      if "${AIRLOCK_ENGINE:-docker}" volume rm "$VOLUME" >/dev/null 2>&1; then
+      if "${AIRLOCK_ENGINE:-docker}" volume rm "$VOLUME" > /dev/null 2>&1; then
         log "removed volume $VOLUME: copied config, the login, and session state"
       else
         log "no volume $VOLUME"
       fi
-      "${AIRLOCK_ENGINE:-docker}" volume rm "$CACHE_VOLUME" >/dev/null 2>&1 \
+      "${AIRLOCK_ENGINE:-docker}" volume rm "$CACHE_VOLUME" > /dev/null 2>&1 \
         && log "removed volume $CACHE_VOLUME: npm, uv and go caches" || true
-      "${AIRLOCK_ENGINE:-docker}" volume rm "$STATE_VOLUME" >/dev/null 2>&1 \
+      "${AIRLOCK_ENGINE:-docker}" volume rm "$STATE_VOLUME" > /dev/null 2>&1 \
         && log "removed volume $STATE_VOLUME: ~/.config, including the gh login" || true
       for p in "$(dirname "$CONFIG_FILE")" "$CACHE_DIR"; do
         # Guarded because a bad edit upstream would make this an rm -rf of something else.
-        case "$p" in */airlock) ;; *) log "refusing to remove $p"; continue ;; esac
+        case "$p" in */airlock) ;; *)
+          log "refusing to remove $p"
+          continue
+          ;;
+        esac
         if [[ -e "$p" ]]; then rm -rf "$p" && log "removed $p"; fi
       done
       log "image $IMAGE kept, delete it with: ${AIRLOCK_ENGINE:-docker} rmi $IMAGE"
-      exit 0 ;;
-    -h|--help)
-      cat <<'EOF'
+      exit 0
+      ;;
+    -h | --help)
+      cat << 'EOF'
 usage: airlock [flags] [claude args...]
 
   --config       choose again what to copy from the host, and re-copy
@@ -149,32 +196,36 @@ Environment:
   AIRLOCK_ENGINE, AIRLOCK_IMAGE, AIRLOCK_VOLUME, AIRLOCK_CACHE_VOLUME,
   AIRLOCK_STATE_VOLUME, AIRLOCK_PLATFORM
 EOF
-      exit 0 ;;
-    *) extra+=("$1"); shift ;;
+      exit 0
+      ;;
+    *)
+      extra+=("$1")
+      shift
+      ;;
   esac
 done
 
 ENGINE="${AIRLOCK_ENGINE:-docker}"
-command -v "$ENGINE" >/dev/null || die "$ENGINE not found on PATH"
-if "$ENGINE" --version 2>/dev/null | grep -qi podman; then
+command -v "$ENGINE" > /dev/null || die "$ENGINE not found on PATH"
+if "$ENGINE" --version 2> /dev/null | grep -qi podman; then
   die "$ENGINE is podman, which differs on userns mapping and socket discovery; unsupported"
 fi
 
 # docker info reports aarch64, which is not a valid platform value.
-server="$("$ENGINE" version --format '{{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null || true)"
+server="$("$ENGINE" version --format '{{.Server.Os}}/{{.Server.Arch}}' 2> /dev/null || true)"
 [[ -n "$server" && "$server" != "/" ]] || die "cannot reach $ENGINE; is the runtime running?"
 PLATFORM="${AIRLOCK_PLATFORM:-${DOCKER_DEFAULT_PLATFORM:-$server}}"
 
 mkdir -p "$CACHE_DIR"
 built_stamp="$CACHE_DIR/built"
 
-if [[ "$do_build" == 1 ]] || ! "$ENGINE" image inspect "$IMAGE" >/dev/null 2>&1; then
+if [[ "$do_build" == 1 ]] || ! "$ENGINE" image inspect "$IMAGE" > /dev/null 2>&1; then
   log "building $IMAGE for $PLATFORM"
   "$ENGINE" build --platform "$PLATFORM" -t "$IMAGE" "$SCRIPT_DIR"
   : > "$built_stamp"
   [[ "$do_build" == 1 ]] && exit 0
 elif [[ -f "$built_stamp" ]] \
-  && [[ -n "$(find "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR/entrypoint.sh" -newer "$built_stamp" 2>/dev/null)" ]]; then
+  && [[ -n "$(find "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR/entrypoint.sh" -newer "$built_stamp" 2> /dev/null)" ]]; then
   log "Dockerfile or entrypoint changed since the last build; run --build"
 fi
 
@@ -185,7 +236,7 @@ fi
 
 seed_load_prefs
 # No volume means nothing has been copied yet, so that is the first-run signal.
-if [[ "$do_config" == 1 ]] || ! "$ENGINE" volume inspect "$VOLUME" >/dev/null 2>&1; then
+if [[ "$do_config" == 1 ]] || ! "$ENGINE" volume inspect "$VOLUME" > /dev/null 2>&1; then
   seed_interview
 fi
 
@@ -194,8 +245,8 @@ if [[ "$do_config" == 1 ]]; then
   exit 0
 fi
 
-WORKDIR="$(pwd -P)"                               # docker resolves the source in the VM,
-                                                  # where a logical path may not exist
+WORKDIR="$(pwd -P)" # docker resolves the source in the VM,
+# where a logical path may not exist
 [[ "$WORKDIR" == "/" ]] && die "refusing to mount /"
 [[ "$WORKDIR" == "$HOST_HOME" ]] && die "refusing to run from \$HOME; it collides with the config volume"
 [[ "$WORKDIR" == "$HOST_CLAUDE" || "$WORKDIR" == "$HOST_CLAUDE"/* ]] \
@@ -216,8 +267,8 @@ host_seed() {
 }
 
 [[ "${AIRLOCK_NO_GIT:-0}" == 0 && "$MOUNT_GIT" == 1 ]] && {
-  host_seed "$HOST_HOME/.gitconfig"           /mnt/seed/gitconfig           gitconfig
-  host_seed "$HOST_HOME/.gitignore"           /mnt/seed/gitignore           gitignore
+  host_seed "$HOST_HOME/.gitconfig" /mnt/seed/gitconfig gitconfig
+  host_seed "$HOST_HOME/.gitignore" /mnt/seed/gitignore gitignore
   host_seed "$HOST_HOME/.git_allowed_signers" /mnt/seed/git_allowed_signers allowed_signers
 }
 [[ "${AIRLOCK_NO_KUBE:-0}" == 0 && "$MOUNT_KUBE" == 1 ]] \
@@ -249,7 +300,7 @@ for ((i = 0; i < ${#add_paths[@]}; i++)); do
   fi
   # Mounting alone is not enough; claude refuses a path outside the ones it was given.
   add_flags+=(--add-dir "$p")
-  add_env="$add_env$p"$'\n'                        # newline-separated: a path may hold a colon
+  add_env="$add_env$p"$'\n' # newline-separated: a path may hold a colon
 done
 
 envs=(
@@ -266,17 +317,17 @@ for v in AIRLOCK_FIX_SIGNING AIRLOCK_COPY_KUBECONFIG TERM COLORTERM; do
   [[ -n "$val" ]] && envs+=(-e "$v=$val")
 done
 if [[ ${#user_envs[@]} -gt 0 ]]; then
-  envs+=("${user_envs[@]}")                       # after the forwarded ones, so --env TERM=dumb wins
+  envs+=("${user_envs[@]}") # after the forwarded ones, so --env TERM=dumb wins
   log "env    ${env_names# }"
 fi
 
-tty_flags=(-i)                                    # without -i a piped stdin sees EOF
-[[ -t 0 && -t 1 ]] && tty_flags+=(-t)             # -t only on a terminal, so pipes work
+tty_flags=(-i)                        # without -i a piped stdin sees EOF
+[[ -t 0 && -t 1 ]] && tty_flags+=(-t) # -t only on a terminal, so pipes work
 
-A=("${add_flags[@]+"${add_flags[@]}"}")           # bash 3.2 expands an empty array as unset
+A=("${add_flags[@]+"${add_flags[@]}"}") # bash 3.2 expands an empty array as unset
 case "$mode" in
-  shell)  cmd=(bash) ;;
-  plain)  cmd=(claude "${A[@]+"${A[@]}"}" "${extra[@]+"${extra[@]}"}") ;;
+  shell) cmd=(bash) ;;
+  plain) cmd=(claude "${A[@]+"${A[@]}"}" "${extra[@]+"${extra[@]}"}") ;;
   claude) cmd=(claude --dangerously-skip-permissions "${A[@]+"${A[@]}"}" "${extra[@]+"${extra[@]}"}") ;;
 esac
 
