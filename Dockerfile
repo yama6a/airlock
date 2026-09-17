@@ -9,7 +9,7 @@ FROM ubuntu:26.04@sha256:cd21a4f68a617580279d4b091cb18e3af9fa8a87500665f0ae5f7f7
 ARG TARGETARCH
 
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.273
+ARG CLAUDE_VERSION=2.1.274
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.0
 # renovate: datasource=github-releases depName=helm/helm
@@ -29,7 +29,7 @@ ARG GH_VERSION=2.101.0
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.1
 # renovate: datasource=github-tags depName=nodejs/node
-ARG NODE_VERSION=v26.8.2
+ARG NODE_VERSION=v26.9.0
 # renovate: datasource=go depName=golang.org/x/tools/gopls
 ARG GOPLS_VERSION=v0.23.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
