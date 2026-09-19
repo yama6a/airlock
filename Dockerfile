@@ -4,12 +4,12 @@
 ARG UV_VERSION=0.12.17@sha256:10787c682e4184e4f290de1171fd4703dc63de99221f10fe1c99002ce7fa9acc
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:9559ceb7c21e528e233e8dff26a0fb2682f4094cce06176eeb075d87a22b31de
+FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
 
 ARG TARGETARCH
 
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.277
+ARG CLAUDE_VERSION=2.1.278
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.0
 # renovate: datasource=github-releases depName=helm/helm
@@ -43,7 +43,7 @@ ARG GOLANGCI_LINT_VERSION=2.13.2
 # renovate: datasource=npm depName=playwright
 ARG PLAYWRIGHT_VERSION=1.63.0
 # renovate: datasource=pypi depName=pgcli
-ARG PGCLI_VERSION=4.6.0
+ARG PGCLI_VERSION=4.7.0
 ARG PG_MAJOR=18
 
 ENV DEBIAN_FRONTEND=noninteractive
