@@ -29,7 +29,7 @@ ARG GH_VERSION=2.101.0
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.1
 # renovate: datasource=github-tags depName=nodejs/node
-ARG NODE_VERSION=v26.9.0
+ARG NODE_VERSION=v26.10.0
 # renovate: datasource=go depName=golang.org/x/tools/gopls
 ARG GOPLS_VERSION=v0.23.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
