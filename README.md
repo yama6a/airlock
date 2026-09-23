@@ -58,9 +58,9 @@ airlock --self-update     # pull the newest image and launcher, then exit
 After Claude exits, airlock prints a yellow line when GHCR has a newer image. The check runs
 in the background while Claude runs.
 
-Every change on `main` to `Dockerfile`, `entrypoint.sh`, `airlock` or `lib/seed.sh` publishes
-an arm64 image, for Apple Silicon. It also creates a GitHub release named after the image's
-version.
+Every change on `main` to `Dockerfile`, `entrypoint.sh`, `airlock`, `lib/seed.sh` or the
+publish workflow publishes an arm64 image, for Apple Silicon. It also creates a GitHub release
+named after the image's version.
 `--self-update` downloads the launcher from the release's tag, so it always matches the image.
 
 | Tag         | Points at                                                 |

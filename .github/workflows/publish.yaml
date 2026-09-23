@@ -5,7 +5,7 @@ name: Publish
 on:
   push:
     branches: [main]
-    paths: [Dockerfile, entrypoint.sh, airlock, lib/seed.sh]
+    paths: [Dockerfile, entrypoint.sh, airlock, lib/seed.sh, .github/workflows/publish.yaml]
   workflow_dispatch:
 
 # Queued, never cancelled: two runs at once would read the same tag list and pick the same n.
