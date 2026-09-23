@@ -44,7 +44,7 @@ jobs:
   # every ARG in the Dockerfile.
   build:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: yama6a/gha/.github/actions/hadolint@v2
@@ -52,7 +52,7 @@ jobs:
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/arm64
           push: false
           # Reads what the publish workflow writes on main. PRs never write, so they cannot evict it.
-          cache-from: type=gha,scope=amd64
+          cache-from: type=gha,scope=arm64
