@@ -22,16 +22,23 @@ Not `stargazerZJ/ccbox`, which is an LXD sandbox for Linux.
 | Docker Desktop, Colima, OrbStack | untested, should work |
 | Podman                           | rejected              |
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yama6a/airlock/main/install.sh | bash
+```
+
+- puts the launcher in `~/.airlock` and links `/usr/local/bin/airlock` to it, with `sudo`
+- pulls the image from `ghcr.io/yama6a/airlock`
+- `airlock --uninstall` removes the launcher and the link. Volumes and the image stay.
+
 ## Use
 
 ```bash
-git clone <this repo> ~/airlock
 cd ~/some/project
-~/airlock/airlock
+airlock
 ```
 
-- alias it: `alias al=~/airlock/airlock`
-- image builds itself on first run
 - `$PWD` is mounted at the same absolute path, so printed paths work on the host too
 - nothing else is mounted unless you name it
 
@@ -41,6 +48,35 @@ airlock --add-dir-rw ~/other/repo --add-dir-ro ~/reference/repo
 
 Both flags repeat and are handed to Claude as `--add-dir`. Not allowed: `/`, `$HOME`, inside
 `~/.claude`, or outside a path the runtime shares with its VM.
+
+### Updates
+
+```bash
+airlock --self-update     # pull the newest image and launcher, then exit
+```
+
+After Claude exits, airlock prints a yellow line when GHCR has a newer image. The check runs
+in the background while Claude runs.
+
+Every change on `main` to `Dockerfile`, `entrypoint.sh`, `airlock` or `lib/seed.sh` publishes
+an image for amd64 and arm64. It also tags that commit with the image's version.
+`--self-update` downloads the launcher from that tag, so the launcher always matches the image.
+
+| Tag         | Points at                                                 |
+|-------------|-----------------------------------------------------------|
+| `latest`    | the newest publish, and the default                       |
+| `2.1.280`   | the newest publish with Claude Code 2.1.280               |
+| `2.1.280-3` | the third publish with Claude Code 2.1.280. Never moves.  |
+
+### From a clone
+
+A clone runs its own launcher against a locally built image. There is no update check, and
+`--self-update` and `--uninstall` refuse to run.
+
+```bash
+make build                  # builds airlock:latest
+make run ARGS="--shell"     # builds, then runs ./airlock with that image
+```
 
 ## First run
 
@@ -112,7 +148,8 @@ airlock -e ANTHROPIC_BASE_URL=https://my-gateway.example.com -e ANTHROPIC_AUTH_T
 | Flag                  | Effect                                          |
 |-----------------------|-------------------------------------------------|
 | `--config`            | choose again what to copy, and re-copy          |
-| `--build`             | rebuild the image and exit                      |
+| `--self-update`       | pull the newest image and launcher, then exit   |
+| `--uninstall`         | remove the launcher and its link                |
 | `--shell`             | run bash in the claude container                |
 | `--no-yolo`           | run without `--dangerously-skip-permissions`    |
 | `-e`, `--env NAME=v`  | set an env var in the container, repeatable     |
@@ -141,10 +178,9 @@ airlock --env GITHUB_TOKEN            # no '=', forwards the host's value
 | npm, uv and Go module caches                        | volume `airlock-cache`     |
 | `~/.config`, so the `gh` login and other tool state | volume `airlock-state`     |
 | Your picker answers                                 | `~/.config/airlock/config` |
-| Build stamp for the stale-image warning             | `~/.cache/airlock/built`   |
 
-`airlock --reset` removes all five and exits. Next run is a first run. The image is kept;
-`docker rmi airlock:latest` to force a rebuild. To change only what is copied, use `--config`.
+`airlock --reset` removes all four and exits. Next run is a first run. The image is kept;
+`docker rmi` it to force a fresh pull. To change only what is copied, use `--config`.
 
 ## Environment
 
@@ -183,7 +219,7 @@ those in by hand if you want them.
 - Chromium plus its system libraries, so Playwright runs headless with no setup
 
 Not included: `bun`, `java`, `mvn`, cloud CLIs, and the language servers behind the non-Go LSP
-plugins. Add them with `FROM airlock:latest`.
+plugins. Add them with `FROM ghcr.io/yama6a/airlock:latest`.
 
 ## Plugins and MCP servers
 

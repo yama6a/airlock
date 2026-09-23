@@ -2,12 +2,8 @@
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
 ARG UV_VERSION=0.12.18@sha256:3adc3706091ce7c2fe595e669628caedd6d951551b92b258b7e7dbe06d9440bc
-FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-
-ARG TARGETARCH
-
+# Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
 ARG CLAUDE_VERSION=2.1.280
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
@@ -46,6 +42,12 @@ ARG PLAYWRIGHT_VERSION=1.63.0
 ARG PGCLI_VERSION=4.7.1
 ARG PG_MAJOR=18
 
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
+FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
+
+ARG TARGETARCH
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -72,6 +74,7 @@ RUN install -m 0755 -d /etc/apt/keyrings \
 
 # noble again: PGDG names its suites after the distro, so a base image bump needs this changed too.
 # Ubuntu's own postgresql-client is a major behind, and the PGDG one talks to older servers fine.
+ARG PG_MAJOR
 RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
       -o /etc/apt/keyrings/postgresql.asc \
     && chmod a+r /etc/apt/keyrings/postgresql.asc \
@@ -85,6 +88,8 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # kubectx ships x86_64 and node ships x64 where the rest ship amd64.
+ARG KUBECTL_VERSION HELM_VERSION K9S_VERSION KUSTOMIZE_VERSION KUBECTX_VERSION \
+    KUBECONFORM_VERSION YQ_VERSION GH_VERSION GOLANGCI_LINT_VERSION GO_VERSION NODE_VERSION
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) alt_arch=x86_64; node_arch=x64 ;; \
@@ -140,6 +145,7 @@ ENV PATH=/usr/local/go/bin:/usr/local/node/bin:/usr/local/sbin:/usr/local/bin:/u
 
 # Most Python MCP servers launch with uvx, and gopls backs the Go LSP plugin.
 COPY --from=uv /uv /uvx /usr/local/bin/
+ARG GOPLS_VERSION OAPI_CODEGEN_VERSION GOFUMPT_VERSION GOVULNCHECK_VERSION
 RUN export GOFLAGS=-trimpath GOBIN=/usr/local/bin \
     && go install "golang.org/x/tools/gopls@${GOPLS_VERSION}" \
     && go install "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}" \
@@ -150,6 +156,7 @@ RUN export GOFLAGS=-trimpath GOBIN=/usr/local/bin \
 # uv drops a tool under $HOME, which --rm discards, so bake the venv at a path every user can read.
 # UV_TOOL_DIR stays out of ENV: pointing a runtime user at this root-owned dir breaks their own
 # `uv tool install`, and the launcher in /usr/local/bin already names the venv by absolute path.
+ARG PGCLI_VERSION
 RUN UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --no-cache \
       --python /usr/bin/python3 "pgcli==${PGCLI_VERSION}" \
     && chmod -R a+rX /opt/uv-tools
@@ -157,11 +164,13 @@ RUN UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --n
 # Baked at a shared path: the container drops to non-root and --rm discards runtime downloads.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 # --with-deps picks the apt list for this distro, so it cannot drift from the browser version.
+ARG PLAYWRIGHT_VERSION
 RUN npx -y "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
     && chmod -R a+rX /opt/ms-playwright \
     && rm -rf /var/lib/apt/lists/* /root/.npm
 
 # Fixed path, not a user home, so the image carries no user and the entrypoint can pick one.
+ARG CLAUDE_VERSION
 RUN HOME=/opt/claude sh -c "mkdir -p /opt/claude && curl -fsSL https://claude.ai/install.sh | bash -s ${CLAUDE_VERSION}" \
     && ln -s /opt/claude/.local/bin/claude /usr/local/bin/claude \
     && chmod -R a+rX /opt/claude \

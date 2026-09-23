@@ -44,7 +44,7 @@ expect_die() {
 }
 
 head_ "syntax"
-for f in airlock lib/seed.sh entrypoint.sh test/smoke.sh; do
+for f in airlock lib/seed.sh entrypoint.sh install.sh test/smoke.sh; do
   if /bin/bash -n "$f" 2> /dev/null; then ok "$f parses"; else bad "$f does not parse"; fi
 done
 
@@ -60,9 +60,25 @@ esac
 head_ "--help"
 help="$(airlock --help)"
 case "$help" in *'usage: airlock'*) ok "prints usage" ;; *) bad "no usage" ;; esac
-for flag in --config --build --shell --no-yolo --add-dir-rw --add-dir-ro --reset; do
+for flag in --config --self-update --uninstall --shell --no-yolo --add-dir-rw --add-dir-ro --reset; do
   case "$help" in *"$flag"*) ok "documents $flag" ;; *) bad "$flag undocumented" ;; esac
 done
+
+head_ "clone guards"
+expect_die "not a clone" --self-update
+expect_die "not a clone" --uninstall
+
+head_ "installed layout"
+inst="$FIX/home/.airlock"
+mkdir -p "$inst/bin" "$inst/lib"
+cp "$ROOT/airlock" "$inst/bin/airlock"
+cp "$ROOT/lib/seed.sh" "$inst/lib/seed.sh"
+out="$(env -i PATH="$BIN" HOME="$FIX/home" AIRLOCK_ENGINE=noengine AIRLOCK_IMAGE=airlock:latest \
+  /bin/bash "$inst/bin/airlock" --self-update 2>&1)"
+case "$out" in
+  *"pulls from GHCR"*) ok "sources the installed seed.sh, refuses a local image" ;;
+  *) bad "installed --self-update: $(printf '%s' "$out" | head -1)" ;;
+esac
 
 head_ "--env"
 expect_die "is not a variable name" --env "1BAD=x"

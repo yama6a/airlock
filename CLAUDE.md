@@ -8,12 +8,14 @@ so no code path branches on the platform.
 
 ## Layout
 
-Four files, one job each. Keep it that way.
+One job per file. Keep it that way.
 
 | Path                       | Holds                                                                      |
 |----------------------------|----------------------------------------------------------------------------|
 | `airlock`                  | host side. Flags, engine and platform detection, the mount set, the run    |
 | `lib/seed.sh`              | sourced by the launcher. Candidate detection, the picker, the copy         |
+| `install.sh`               | piped from curl. Launcher into `~/.airlock`, link in `/usr/local/bin`      |
+| `Makefile`                 | clone only. Builds the local image and runs the clone's launcher on it     |
 | `entrypoint.sh`            | container side. Identity, host material, privilege drop. Root, then `gosu` |
 | `Dockerfile`               | the image. Every pinned version is an `ARG` at the top, nowhere else       |
 | `README.md`                | the WHY. Every non-obvious reason lives here by default                    |
@@ -23,7 +25,7 @@ Four files, one job each. Keep it that way.
 
 ## Constraints
 
-- `airlock` and `lib/seed.sh` run under stock macOS `bash` 3.2 with `PATH=/usr/bin:/bin`.
+- `airlock`, `lib/seed.sh` and `install.sh` run under stock macOS `bash` 3.2 with `PATH=/usr/bin:/bin`.
   No `mapfile`, no associative arrays, no `globstar`, no Homebrew GNU tools. Parallel arrays
   where a map is wanted.
 - `entrypoint.sh` runs under the image's bash, so no 3.2 limit.
@@ -31,6 +33,7 @@ Four files, one job each. Keep it that way.
 - Config is copied, never bind-mounted: a bind mount lets the container change host config,
   and a file bind mount pins an inode.
 - Nothing personal anywhere. Everything from `$HOME`, `id -un`, or a `AIRLOCK_*` variable.
+  The exceptions are the default GHCR image in the knobs and the repo in `install.sh`.
 - ASCII only.
 
 ## Comments
@@ -152,7 +155,7 @@ the picker skip itself. Interactive paths need a pty.
 
 ```bash
 ./test/smoke.sh                                           # syntax, flags, and the seed copy
-script -q /dev/null ./airlock --shell < commands.txt      # allocates a pty
+script -q /dev/null make run ARGS=--shell < commands.txt  # allocates a pty
 ```
 
 `test/smoke.sh` already builds the throwaway `.claude` that breaks naive implementations:
