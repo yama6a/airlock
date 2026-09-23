@@ -88,8 +88,17 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # kubectx ships x86_64 and node ships x64 where the rest ship amd64.
-ARG KUBECTL_VERSION HELM_VERSION K9S_VERSION KUSTOMIZE_VERSION KUBECTX_VERSION \
-    KUBECONFORM_VERSION YQ_VERSION GH_VERSION GOLANGCI_LINT_VERSION GO_VERSION NODE_VERSION
+ARG KUBECTL_VERSION
+ARG HELM_VERSION
+ARG K9S_VERSION
+ARG KUSTOMIZE_VERSION
+ARG KUBECTX_VERSION
+ARG KUBECONFORM_VERSION
+ARG YQ_VERSION
+ARG GH_VERSION
+ARG GOLANGCI_LINT_VERSION
+ARG GO_VERSION
+ARG NODE_VERSION
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) alt_arch=x86_64; node_arch=x64 ;; \
@@ -145,7 +154,10 @@ ENV PATH=/usr/local/go/bin:/usr/local/node/bin:/usr/local/sbin:/usr/local/bin:/u
 
 # Most Python MCP servers launch with uvx, and gopls backs the Go LSP plugin.
 COPY --from=uv /uv /uvx /usr/local/bin/
-ARG GOPLS_VERSION OAPI_CODEGEN_VERSION GOFUMPT_VERSION GOVULNCHECK_VERSION
+ARG GOPLS_VERSION
+ARG OAPI_CODEGEN_VERSION
+ARG GOFUMPT_VERSION
+ARG GOVULNCHECK_VERSION
 RUN export GOFLAGS=-trimpath GOBIN=/usr/local/bin \
     && go install "golang.org/x/tools/gopls@${GOPLS_VERSION}" \
     && go install "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}" \
