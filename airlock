@@ -8,12 +8,14 @@ set -euo pipefail
 }
 
 # ---- knobs ----
-IMAGE="${AIRLOCK_IMAGE:-airlock:latest}"
+IMAGE="${AIRLOCK_IMAGE:-ghcr.io/yama6a/airlock:latest}"
 VOLUME="${AIRLOCK_VOLUME:-airlock-config}"
 CACHE_VOLUME="${AIRLOCK_CACHE_VOLUME:-airlock-cache}"
 STATE_VOLUME="${AIRLOCK_STATE_VOLUME:-airlock-state}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$HOME/.airlock"
+LINK=/usr/local/bin/airlock
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/airlock"
 
 HOST_HOME="$HOME"
@@ -25,6 +27,9 @@ BOX_HOME="${AIRLOCK_HOME:-$HOST_HOME}"
 BOX_CLAUDE="$BOX_HOME/.claude"
 
 log() { echo "airlock: $*" >&2; }
+warn() {
+  if [[ -t 2 ]]; then printf '\033[33mairlock: %s\033[0m\n' "$*" >&2; else log "$*"; fi
+}
 die() {
   log "$*"
   exit 1
@@ -73,20 +78,93 @@ add_dir() {
   add_ro+=("$ro")
 }
 
-. "$SCRIPT_DIR/lib/seed.sh"
+is_ghcr() { [[ "$IMAGE" == ghcr.io/* ]]; }
 
-do_build=0 do_config=0 mode=claude backup_path=""
+# The GitHub repo shares the image's path, so ghcr.io/o/r:latest is github.com/o/r.
+image_repo() {
+  local r="${IMAGE#ghcr.io/}"
+  echo "${r%%[:@]*}"
+}
+
+image_version() {
+  "$ENGINE" image inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' "$IMAGE"
+}
+
+# Tags look like 2.1.280-3. Sorted as four numeric fields, since 2.1.99 < 2.1.280 and 3 < 12.
+newest_tag() {
+  tr ',' '\n' \
+    | sed -n 's/.*"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*-[0-9][0-9]*\)"[^"]*$/\1/p' \
+    | tr - . | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | sed 's/\.\([0-9]*\)$/-\1/'
+}
+
+# Prints the newer tag, or nothing. Runs in the background, so every failure is silent.
+check_update() {
+  local mine repo token newest
+  mine="$(image_version)"
+  [[ "$mine" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]] || return 0
+  repo="$(image_repo)"
+  token="$(curl -fsS --max-time 10 "https://ghcr.io/token?scope=repository:$repo:pull" \
+    | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+  newest="$(curl -fsS --max-time 10 -H "Authorization: Bearer $token" \
+    "https://ghcr.io/v2/$repo/tags/list?n=10000" | newest_tag)"
+  [[ -n "$newest" && "$newest" != "$mine" ]] || return 0
+  [[ "$(printf '"%s","%s"' "$mine" "$newest" | newest_tag)" == "$newest" ]] || return 0
+  echo "$newest (you have $mine)"
+}
+
+# Downloads beside the target, then renames, so a running launcher keeps reading its old copy.
+self_update() {
+  local version repo f
+  "$ENGINE" pull --platform "$PLATFORM" "$IMAGE"
+  version="$(image_version)"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]] || die "$IMAGE has no publish version label"
+  repo="$(image_repo)"
+  for f in bin/airlock lib/seed.sh; do
+    curl -fsSL -o "$INSTALL_DIR/$f.new" "https://raw.githubusercontent.com/$repo/$version/${f#bin/}" \
+      || die "cannot download ${f#bin/} at $version"
+  done
+  chmod 0755 "$INSTALL_DIR/bin/airlock.new"
+  for f in bin/airlock lib/seed.sh; do mv -f "$INSTALL_DIR/$f.new" "$INSTALL_DIR/$f"; done
+  log "updated to $version"
+}
+
+uninstall() {
+  if [[ "$(readlink "$LINK" 2> /dev/null)" == "$INSTALL_DIR/bin/airlock" ]]; then
+    sudo rm -f "$LINK" && log "removed $LINK"
+  fi
+  rm -rf "$INSTALL_DIR" && log "removed $INSTALL_DIR"
+  log "volumes and image kept, delete them with: ${AIRLOCK_ENGINE:-docker} volume rm" \
+    "$VOLUME $CACHE_VOLUME $STATE_VOLUME; ${AIRLOCK_ENGINE:-docker} rmi $IMAGE"
+}
+
+# A clone runs its own seed.sh. Through the symlink, SCRIPT_DIR is /usr/local/bin, so the installed one.
+installed=0
+seed="$SCRIPT_DIR/lib/seed.sh"
+if [[ ! -f "$seed" ]]; then
+  seed="$INSTALL_DIR/lib/seed.sh"
+  installed=1
+fi
+. "$seed"
+
+do_config=0 do_update=0 mode=claude backup_path=""
 extra=() user_envs=() add_paths=() add_ro=()
 env_names=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --build | --rebuild)
-      do_build=1
-      shift
-      ;;
     --config)
       do_config=1
       shift
+      ;;
+    --self-update)
+      [[ "$installed" == 1 ]] || die "--self-update only updates an installed airlock, not a clone"
+      is_ghcr || die "--self-update pulls from GHCR, but the image is $IMAGE"
+      do_update=1
+      shift
+      ;;
+    --uninstall)
+      [[ "$installed" == 1 ]] || die "--uninstall only removes an installed airlock, not a clone"
+      uninstall
+      exit 0
       ;;
     --shell)
       mode=shell
@@ -159,7 +237,8 @@ while [[ $# -gt 0 ]]; do
 usage: airlock [flags] [claude args...]
 
   --config       choose again what to copy from the host, and re-copy
-  --build        rebuild the image and exit
+  --self-update  pull the newest image and launcher and exit
+  --uninstall    remove the launcher and its /usr/local/bin link, keep volumes and image
   --shell        run bash in the claude container
   --no-yolo      run without --dangerously-skip-permissions
   -e, --env NAME=value
@@ -176,7 +255,7 @@ usage: airlock [flags] [claude args...]
   --reset        wipe everything persisted and exit: the volume holding the copied
                  config, the login and session state, the volume holding ~/.config
                  and the logins of tools like gh, the remembered answers in
-                 ~/.config/airlock, and the build stamp in ~/.cache/airlock.
+                 ~/.config/airlock, and ~/.cache/airlock.
                  Leaves the image. Does not start Claude.
   -h, --help     this
 
@@ -217,16 +296,16 @@ server="$("$ENGINE" version --format '{{.Server.Os}}/{{.Server.Arch}}' 2> /dev/n
 PLATFORM="${AIRLOCK_PLATFORM:-${DOCKER_DEFAULT_PLATFORM:-$server}}"
 
 mkdir -p "$CACHE_DIR"
-built_stamp="$CACHE_DIR/built"
 
-if [[ "$do_build" == 1 ]] || ! "$ENGINE" image inspect "$IMAGE" > /dev/null 2>&1; then
-  log "building $IMAGE for $PLATFORM"
-  "$ENGINE" build --platform "$PLATFORM" -t "$IMAGE" "$SCRIPT_DIR"
-  : > "$built_stamp"
-  [[ "$do_build" == 1 ]] && exit 0
-elif [[ -f "$built_stamp" ]] \
-  && [[ -n "$(find "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR/entrypoint.sh" -newer "$built_stamp" 2> /dev/null)" ]]; then
-  log "Dockerfile or entrypoint changed since the last build; run --build"
+if [[ "$do_update" == 1 ]]; then
+  self_update
+  exit 0
+fi
+
+if ! "$ENGINE" image inspect "$IMAGE" > /dev/null 2>&1; then
+  is_ghcr || die "no image $IMAGE; build it with: make build"
+  log "pulling $IMAGE for $PLATFORM"
+  "$ENGINE" pull --platform "$PLATFORM" "$IMAGE"
 fi
 
 if [[ -n "$backup_path" ]]; then
@@ -333,7 +412,16 @@ esac
 
 slug="$(basename "$WORKDIR" | tr -c '[:alnum:]._-' '-' | cut -c1-40)"
 
-exec "$ENGINE" run --rm --init \
+update_file=""
+if [[ "$installed" == 1 ]] && is_ghcr; then
+  update_file="$CACHE_DIR/update.$$"
+  (check_update > "$update_file.tmp" 2> /dev/null && mv "$update_file.tmp" "$update_file") &
+  check_pid=$!
+  trap 'kill "$check_pid" 2> /dev/null; rm -f "$update_file" "$update_file.tmp"' EXIT
+fi
+
+rc=0
+"$ENGINE" run --rm --init \
   "${tty_flags[@]}" \
   --shm-size=1g \
   --name "airlock-${slug}-$$" \
@@ -341,4 +429,9 @@ exec "$ENGINE" run --rm --init \
   -w "$WORKDIR" \
   "${mounts[@]}" \
   "${envs[@]}" \
-  "$IMAGE" "${cmd[@]}"
+  "$IMAGE" "${cmd[@]}" || rc=$?
+
+# A check still running after the session is dropped rather than waited on.
+[[ -n "$update_file" && -s "$update_file" ]] \
+  && warn "newer image $(cat "$update_file"), run: airlock --self-update"
+exit "$rc"

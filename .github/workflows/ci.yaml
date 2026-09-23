@@ -43,6 +43,7 @@ jobs:
   # Catches a version bump whose download URL no longer exists, which is the failure mode of
   # every ARG in the Dockerfile.
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,3 +54,5 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
+          # Reads what the publish workflow writes on main. PRs never write, so they cannot evict it.
+          cache-from: type=gha,scope=amd64

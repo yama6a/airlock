@@ -1,7 +1,7 @@
 {
   // Opens dependency-update PRs for every pin in the repo. Which manager owns what:
   //   dockerfile      the ubuntu base and the uv stage, both plain FROM lines
-  //   github-actions  the two workflows' own action pins
+  //   github-actions  the workflows' own action pins
   //   customManagers  every `# renovate:`-annotated ARG in the Dockerfile, since Renovate cannot
   //                   see what a curl URL further down does with them
   // Cadence is the cron in .github/workflows/renovate.yaml, not an internal `schedule`, so a manual
