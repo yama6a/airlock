@@ -212,7 +212,7 @@ those in by hand if you want them.
 
 `ubuntu:24.04`. Versions are `ARG`s at the top of the `Dockerfile`.
 
-- git, git-lfs, gh, tig, curl, wget, jq, yq, ripgrep, fd, tree, make, gawk, GNU coreutils,
+- git, git-lfs, gh, act, tig, curl, wget, jq, yq, ripgrep, fd, tree, make, gawk, GNU coreutils,
   openssh-client, vim, less, rsync, socat, dnsutils, build-essential
 - Docker CLI with buildx and compose, kubectl, helm, kubectx, kubens, k9s, kustomize, kubeconform
 - `sqlite3`, `psql` and `pgcli` from PGDG, a major ahead of Ubuntu's

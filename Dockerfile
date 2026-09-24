@@ -22,6 +22,8 @@ ARG KUBECONFORM_VERSION=v0.8.0
 ARG YQ_VERSION=v4.53.6
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.101.0
+# renovate: datasource=github-releases depName=nektos/act
+ARG ACT_VERSION=v0.2.89
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.1
 # renovate: datasource=github-tags depName=nodejs/node
@@ -87,7 +89,7 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
 # set -eux does not cover a failed curl on the left of a pipe: tar would succeed on empty input.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# kubectx ships x86_64 and node ships x64 where the rest ship amd64.
+# kubectx and act ship x86_64 and node ships x64 where the rest ship amd64.
 ARG KUBECTL_VERSION
 ARG HELM_VERSION
 ARG K9S_VERSION
@@ -96,6 +98,7 @@ ARG KUBECTX_VERSION
 ARG KUBECONFORM_VERSION
 ARG YQ_VERSION
 ARG GH_VERSION
+ARG ACT_VERSION
 ARG GOLANGCI_LINT_VERSION
 ARG GO_VERSION
 ARG NODE_VERSION
@@ -137,6 +140,10 @@ RUN set -eux; \
     curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${TARGETARCH}.tar.gz" \
       | tar -xz -C /tmp "gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh"; \
     install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh" /usr/local/bin/gh; \
+    \
+    curl -fsSL "https://github.com/nektos/act/releases/download/${ACT_VERSION}/act_Linux_${alt_arch}.tar.gz" \
+      | tar -xz -C /tmp act; \
+    install -m 0755 /tmp/act /usr/local/bin/act; \
     \
     curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${TARGETARCH}.tar.gz" \
       | tar -xz -C /tmp "golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${TARGETARCH}/golangci-lint"; \
