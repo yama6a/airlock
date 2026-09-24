@@ -2,9 +2,10 @@
 
 Runs Claude Code in a container on macOS, isolated from the host and authenticating on its
 own, so it can be on a different account or endpoint than the host at the same time. Host
-Claude config is detected, chosen from a picker, and COPIED into a Docker volume with
-symlinks resolved. No config is bind-mounted. macOS only: the launcher dies on anything else,
-so no code path branches on the platform.
+Claude config is detected, chosen from a picker, and COPIED into `~/.airlock/mount/claude`
+with symlinks resolved. That folder is bind-mounted as the container's `~/.claude`. The
+host's own config never is. macOS only: the launcher dies on anything else, so no code path
+branches on the platform.
 
 ## Layout
 
@@ -30,8 +31,8 @@ One job per file. Keep it that way.
   where a map is wanted.
 - `entrypoint.sh` runs under the image's bash, so no 3.2 limit.
 - Host `jq` is optional. A feature needing it degrades with one `log` line.
-- Config is copied, never bind-mounted: a bind mount lets the container change host config,
-  and a file bind mount pins an inode.
+- Host config is copied, never bind-mounted: a bind mount lets the container change it. Mount
+  directories only, a file bind mount pins an inode.
 - Nothing personal anywhere. Everything from `$HOME`, `id -un`, or a `AIRLOCK_*` variable.
   The exceptions are the default GHCR image in the knobs and the repo in `install.sh`.
 - ASCII only.
@@ -141,8 +142,8 @@ Each cost real time to find. Do not re-derive them.
 - **The engine creates a missing bind-mount target as root**, so parents need chowning.
 - **`useradd` rejects large uids**, so `/etc/passwd` is written directly.
 - **A container filesystem write is discarded by `--rm`.** Anything that must survive goes in
-  a volume: config in `airlock-config`, package caches in `airlock-cache`, `~/.config` and so
-  the `gh` login in `airlock-state`. npm and the Go module cache do not default under
+  a volume or the config folder: config in `~/.airlock/mount/claude`, package caches in
+  `airlock-cache`, `~/.config` and so the `gh` login in `airlock-state`. npm and the Go module cache do not default under
   `~/.cache`, so the entrypoint redirects them.
 - **Chromium needs more than 64 MB of `/dev/shm`** or it dies on real pages, hence
   `--shm-size` on the run. Let `playwright install --with-deps` choose the apt packages rather
@@ -163,6 +164,6 @@ symlinks into a flat dir plus one dangling link. It lives under the real `$HOME`
 because only `$HOME`, `/Users` and `/Volumes` are accepted. Drive `seed_picker` directly when
 you change toggles, the smoke test drives `seed_detect` and `seed_apply` instead.
 
-Then: no symlinks survive in the volume, the uid matches the workspace owner, a file written
-in the workspace is host-owned, `env | grep -i anthropic` is empty, `claude -p` answers, and
+Then: no symlinks survive in the config folder, the uid matches the workspace owner, a file
+written in the workspace is host-owned, `env | grep -i anthropic` is empty, `claude -p` answers, and
 the host's `~/.claude` and `~/.claude.json` are byte-identical across a run.

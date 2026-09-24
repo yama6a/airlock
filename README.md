@@ -30,7 +30,8 @@ curl -fsSL https://raw.githubusercontent.com/yama6a/airlock/main/install.sh | ba
 
 - puts the launcher in `~/.airlock` and links `/usr/local/bin/airlock` to it, with `sudo`
 - pulls the image from `ghcr.io/yama6a/airlock`
-- `airlock --uninstall` removes the launcher and the link. Volumes and the image stay.
+- `airlock --uninstall` removes the launcher and the link. `~/.airlock/mount`, the volumes and the
+  image stay.
 
 ## Use
 
@@ -88,7 +89,7 @@ Airlock reads `$CLAUDE_CONFIG_DIR`, or `~/.claude`, and asks:
 ```
 airlock: Claude config found in /Users/you/.claude
 
-  copy into the container volume
+  copy into /Users/you/.airlock/mount/claude
    1 [x] settings.json                              2.1K
    2 [ ] settings.local.json                         708B
    3 [x] CLAUDE.md                                  5.3K
@@ -115,7 +116,8 @@ airlock: Claude config found in /Users/you/.claude
 
 - only items that exist are listed
 - answers saved to `~/.config/airlock/config`; `--config` asks again and re-copies
-- config is copied, not mounted, and symlinks are resolved on the way in
+- config is copied into `~/.airlock/mount/claude`, and symlinks are resolved on the way in
+- that folder is mounted as the container's `~/.claude`. Your own `~/.claude` never is.
 - `.gitconfig`, kubeconfig and `~/.ssh` are the exception: re-read from the host every start
 - no terminal means no picker, defaults get copied
 
@@ -130,8 +132,8 @@ Run `/login` inside the container. The browser callback cannot reach it, so:
 2. open it on the host, approve
 3. paste the code back
 
-`/status` confirms. The login is stored in the volume and survives rebuilds; only `--reset`
-drops it. Expect to redo it every few days.
+`/status` confirms. The login is stored in the config folder and survives rebuilds; only
+`--reset` drops it. Expect to redo it every few days.
 
 `gh auth login` is the same deal: it writes to `~/.config/gh`, which is the `airlock-state`
 volume, so one login lasts until `--reset`. Pick HTTPS and paste a token, or `--env
@@ -175,13 +177,23 @@ airlock --env GITHUB_TOKEN            # no '=', forwards the host's value
 
 | What                                                | Where                      |
 |-----------------------------------------------------|----------------------------|
-| Copied config, the login, Claude's session state    | volume `airlock-config`    |
+| Copied config, the login, Claude's session state    | `~/.airlock/mount/claude`  |
 | npm, uv and Go module caches                        | volume `airlock-cache`     |
 | `~/.config`, so the `gh` login and other tool state | volume `airlock-state`     |
 | Your picker answers                                 | `~/.config/airlock/config` |
 
 `airlock --reset` removes all four and exits. Next run is a first run. The image is kept;
 `docker rmi` it to force a fresh pull. To change only what is copied, use `--config`.
+
+## Config folder
+
+`~/.airlock/mount/claude` is a plain folder on the Mac, so you can back it up, sync it or edit
+it there. The container can write to it, never to your own `~/.claude`. It holds the
+container's login token in `.credentials.json`.
+
+To keep it in a synced folder, make `~/.airlock/mount/claude` a symlink or set
+`AIRLOCK_CONFIG_DIR`. The launcher resolves the symlink and mounts the target, since the
+runtime's VM cannot follow it. The target must be under `$HOME`, `/Users` or `/Volumes`.
 
 ## Environment
 
@@ -194,7 +206,8 @@ airlock --env GITHUB_TOKEN            # no '=', forwards the host's value
 | `AIRLOCK_FIX_SIGNING=0`                                                         | leave a literal ssh `user.signingkey` alone     |
 | `AIRLOCK_COPY_KUBECONFIG=0`                                                     | do not copy the kubeconfig to a writable path   |
 | `AIRLOCK_ENGINE`, `AIRLOCK_IMAGE`, `AIRLOCK_PLATFORM`                           | overrides                                       |
-| `AIRLOCK_VOLUME`, `AIRLOCK_CACHE_VOLUME`, `AIRLOCK_STATE_VOLUME`                | volume names                                    |
+| `AIRLOCK_CONFIG_DIR`                                                            | the config folder, see above                    |
+| `AIRLOCK_CACHE_VOLUME`, `AIRLOCK_STATE_VOLUME`                                  | volume names                                    |
 
 ## Never copied
 
@@ -212,7 +225,7 @@ those in by hand if you want them.
 
 `ubuntu:24.04`. Versions are `ARG`s at the top of the `Dockerfile`.
 
-- git, git-lfs, gh, tig, curl, wget, jq, yq, ripgrep, fd, tree, make, gawk, GNU coreutils,
+- git, git-lfs, gh, act, tig, curl, wget, jq, yq, ripgrep, fd, tree, make, gawk, GNU coreutils,
   openssh-client, vim, less, rsync, socat, dnsutils, build-essential
 - Docker CLI with buildx and compose, kubectl, helm, kubectx, kubens, k9s, kustomize, kubeconform
 - `sqlite3`, `psql` and `pgcli` from PGDG, a major ahead of Ubuntu's

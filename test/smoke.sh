@@ -80,6 +80,32 @@ case "$out" in
   *) bad "installed --self-update: $(printf '%s' "$out" | head -1)" ;;
 esac
 
+head_ "config folder"
+for bad_dir in "$HOME" / relative/path "$(dirname "$HOME")"; do
+  out="$(env -i PATH="$BIN" HOME="$HOME" AIRLOCK_CONFIG_DIR="$bad_dir" /bin/bash "$ROOT/airlock" --help 2>&1)"
+  case "$out" in *"AIRLOCK_CONFIG_DIR=$bad_dir"*) ok "refuses AIRLOCK_CONFIG_DIR=$bad_dir" ;;
+  *) bad "AIRLOCK_CONFIG_DIR=$bad_dir: $(printf '%s' "$out" | head -1)" ;; esac
+done
+mkdir -p "$FIX/home/cfg/skills"
+out="$(env -i PATH="$BIN" HOME="$FIX/home" AIRLOCK_ENGINE=noengine AIRLOCK_CONFIG_DIR="$FIX/home/cfg" \
+  /bin/bash "$ROOT/airlock" --reset 2>&1)"
+[[ ! -e "$FIX/home/cfg" ]] && ok "--reset removes the config folder" || bad "--reset left $FIX/home/cfg"
+mkdir -p "$inst/mount/claude"
+out="$(env -i PATH="$BIN" HOME="$FIX/home" /bin/bash "$inst/bin/airlock" --uninstall 2>&1)"
+[[ -d "$inst/mount/claude" && ! -e "$inst/bin" ]] && ok "--uninstall keeps mount/" \
+  || bad "--uninstall: $(printf '%s' "$out" | head -1)"
+
+# Records the run instead of starting a container.
+printf '#!/bin/sh\ncase "$1" in version) echo linux/arm64 ;; run) printf "%%s\\n" "$@" > "$DUMP_ARGS" ;; esac\n' \
+  > "$STUB/dumpengine"
+chmod 0755 "$STUB/dumpengine"
+mkdir -p "$FIX/h2/drive/claude" "$FIX/h2/repo" "$FIX/h2/.airlock/mount"
+ln -s "$FIX/h2/drive/claude" "$FIX/h2/.airlock/mount/claude"
+(cd "$FIX/h2/repo" && env -i PATH="$BIN" HOME="$FIX/h2" AIRLOCK_ENGINE=dumpengine \
+  DUMP_ARGS="$FIX/run-args.txt" /bin/bash "$ROOT/airlock" < /dev/null > "$FIX/run-out.txt" 2>&1)
+grep -q "type=bind,src=$(cd "$FIX/h2/drive/claude" && pwd -P),dst=$FIX/h2/.claude" "$FIX/run-args.txt" 2> /dev/null \
+  && ok "a symlinked config folder mounts its target" || bad "symlinked config folder: $(tail -1 "$FIX/run-out.txt")"
+
 head_ "--env"
 expect_die "is not a variable name" --env "1BAD=x"
 expect_die "is not a variable name" --env "a-b=x"
@@ -121,12 +147,9 @@ for n in settings.json CLAUDE.md skills; do ln -s "$FIX/flat/$n" "$FIX/dot/$n"; 
 ln -s "$FIX/flat/gone" "$FIX/dot/hooks"            # top level: never offered at all
 ln -s "$FIX/flat/gone" "$FIX/flat/skills/a/broken" # nested under a symlinked dir: must be excluded
 
-printf '#!/bin/sh\nprintf "%%s\\n" "$@" > "$DUMP_ARGS"\ncat > "$DUMP_TAR"\n' > "$STUB/dumpengine"
-chmod 0755 "$STUB/dumpengine"
-
 seed_out="$(
   exec 2>&1 # log() and die() write to stderr
-  export PATH="$BIN" DUMP_TAR="$FIX/stream.tar" DUMP_ARGS="$FIX/args.txt"
+  export PATH="$BIN"
   cd "$ROOT" || exit 1
   log() { echo "airlock: $*" >&2; }
   die() {
@@ -134,7 +157,7 @@ seed_out="$(
     exit 1
   }
   HOST_CLAUDE="$FIX/dot" HOST_CLAUDE_JSON="$FIX/dot/.claude.json"
-  CONFIG_FILE="$FIX/prefs" VOLUME=smoke BOX_CLAUDE="$HOME/.claude" ENGINE=dumpengine IMAGE=smoke
+  CONFIG_FILE="$FIX/prefs" CONFIG_MOUNT="$FIX/x" BOX_CLAUDE="$HOME/.claude"
   MOUNT_GIT=0 MOUNT_KUBE=0 MOUNT_SSH=0 MOUNT_DOCKER_SOCK=0
   . lib/seed.sh
   CONFIG_FILE="$FIX/prefs"
@@ -154,8 +177,7 @@ case "$seed_out" in *"dangling symlink skills/a/broken"*) ok "nested dangling li
 case "$seed_out" in *"dangling symlink hooks"*) bad "top-level dangling link was offered" ;;
 *) ok "top-level dangling link not offered" ;; esac
 
-if [[ -s "$FIX/stream.tar" ]]; then
-  mkdir -p "$FIX/x" && tar -xf "$FIX/stream.tar" -C "$FIX/x" 2> /dev/null
+if [[ -d "$FIX/x" ]]; then
   for want in settings.json CLAUDE.md skills/a/SKILL.md host-scripts/status.sh .mcp-seed.json; do
     [[ -e "$FIX/x/$want" ]] && ok "copied $want" || bad "missing $want"
   done
@@ -164,10 +186,10 @@ if [[ -s "$FIX/stream.tar" ]]; then
   grep -q '"one"' "$FIX/x/.mcp-seed.json" && ok "mcpServers carried" || bad "mcpServers missing"
   grep -q 'must-not-travel' "$FIX/x/.mcp-seed.json" \
     && bad "the rest of .claude.json leaked" || ok "only mcpServers copied"
-  grep -q 'SED_EXPRS=.*host-scripts/status.sh' "$FIX/args.txt" \
+  grep -q "$HOME/.claude/host-scripts/status.sh" "$FIX/x/settings.json" \
     && ok "statusLine path rewritten" || bad "statusLine path not rewritten"
 else
-  bad "no tar stream produced"
+  bad "nothing copied into the config folder"
 fi
 
 grep -q 'mcpServers' "$FIX/prefs" && ok "answers saved" || bad "answers not saved"

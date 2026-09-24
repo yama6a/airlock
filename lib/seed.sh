@@ -167,7 +167,7 @@ seed_render() {
       case "$section" in
         config)
           echo
-          echo "  copy into the container volume"
+          echo "  copy into $CONFIG_MOUNT"
           ;;
         script)
           echo
@@ -310,44 +310,22 @@ seed_apply() {
     fi
   fi
 
-  log "seeding volume $VOLUME"
-  # Never -L: to GNU tar that is --tape-length and it consumes an argument.
-  COPYFILE_DISABLE=1 tar --dereference --no-mac-metadata --no-xattrs --no-fflags \
-    -cf - "${tar_args[@]}" \
-    | "$ENGINE" run --rm -i \
-      --mount "type=volume,src=$VOLUME,dst=/seed" \
-      -e "SED_EXPRS=${sed_exprs#;}" \
-      -e "DROP=$drop" \
-      -e "OWNER=$(id -u):$(id -g)" \
-      --entrypoint sh "$IMAGE" -c '
-          set -e
-          # Only ever names the launcher offered, so credentials and .claude.json are safe.
-          for d in $DROP; do rm -rf "/seed/$d"; done
-          tar -xmf - -C /seed --no-same-owner
-          if [ -n "$SED_EXPRS" ] && [ -f /seed/settings.json ]; then
-            sed -i "$SED_EXPRS" /seed/settings.json
-          fi
-          chown -R "$OWNER" /seed
-        '
-  local rc=$?
+  log "copying into $CONFIG_MOUNT"
+  mkdir -p "$CONFIG_MOUNT" || die "cannot create $CONFIG_MOUNT"
+  local d rc=0
+  # Only ever names the launcher offered, so credentials and .claude.json are safe.
+  for d in $drop; do rm -rf "${CONFIG_MOUNT:?}/$d"; done
+  if [[ ${#tar_args[@]} -gt 0 ]]; then
+    # Never -L: to GNU tar that is --tape-length and it consumes an argument.
+    COPYFILE_DISABLE=1 tar --dereference --no-mac-metadata --no-xattrs --no-fflags \
+      -cf - "${tar_args[@]}" | tar -xmf - -C "$CONFIG_MOUNT" || rc=$?
+  fi
+  local settings="$CONFIG_MOUNT/settings.json"
+  if [[ "$rc" == 0 && -n "$sed_exprs" && -f "$settings" ]]; then
+    sed "${sed_exprs#;}" "$settings" > "$settings.tmp" && mv -f "$settings.tmp" "$settings" || rc=$?
+  fi
   [[ -n "$stage" ]] && rm -rf "$stage"
   return $rc
-}
-
-# Wipes first: a stale file from the current volume would otherwise survive the restore.
-seed_import_backup() {
-  local path="$1"
-  [[ -f "$path" ]] || die "--import-config-backup $path: not a file"
-  log "importing $path into volume $VOLUME, discarding its current contents"
-  "$ENGINE" run --rm -i \
-    --mount "type=volume,src=$VOLUME,dst=/seed" \
-    -e "OWNER=$(id -u):$(id -g)" \
-    --entrypoint sh "$IMAGE" -c '
-        set -e
-        find /seed -mindepth 1 -delete
-        tar -xf - -C /seed --no-same-owner
-        chown -R "$OWNER" /seed
-      ' < "$path"
 }
 
 seed_interview() {
