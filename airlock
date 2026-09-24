@@ -9,7 +9,7 @@ set -euo pipefail
 
 # ---- knobs ----
 IMAGE="${AIRLOCK_IMAGE:-ghcr.io/yama6a/airlock:latest}"
-VOLUME="${AIRLOCK_VOLUME:-airlock-config}"
+CONFIG_MOUNT="${AIRLOCK_CONFIG_DIR:-$HOME/.airlock/mount/claude}"
 CACHE_VOLUME="${AIRLOCK_CACHE_VOLUME:-airlock-cache}"
 STATE_VOLUME="${AIRLOCK_STATE_VOLUME:-airlock-state}"
 
@@ -34,6 +34,15 @@ die() {
   log "$*"
   exit 1
 }
+
+# --reset runs rm -rf on it.
+[[ "$CONFIG_MOUNT" == /* ]] || die "AIRLOCK_CONFIG_DIR=$CONFIG_MOUNT: not an absolute path"
+case "$CONFIG_MOUNT" in
+  / | "$HOST_HOME" | "$HOST_HOME"/ | "$HOST_CLAUDE" | "$HOST_CLAUDE"/*)
+    die "AIRLOCK_CONFIG_DIR=$CONFIG_MOUNT: refusing /, \$HOME and $HOST_CLAUDE"
+    ;;
+esac
+[[ "$HOST_HOME" == "$CONFIG_MOUNT"/* ]] && die "AIRLOCK_CONFIG_DIR=$CONFIG_MOUNT: refusing a parent of \$HOME"
 
 # Outside these a bind mounts empty with no error, which is harder to spot than a failure.
 shared_path() {
@@ -69,7 +78,7 @@ add_dir() {
   [[ "$p" == "/" ]] && die "--add-dir: refusing /"
   [[ "$p" == "$HOST_HOME" ]] && die "--add-dir: refusing \$HOME"
   [[ "$p" == "$HOST_CLAUDE" || "$p" == "$HOST_CLAUDE"/* ]] \
-    && die "--add-dir: refusing $HOST_CLAUDE; it collides with the config volume"
+    && die "--add-dir: refusing $HOST_CLAUDE; it collides with the config mount"
   shared_path "$p" || die "--add-dir $p is outside the paths the runtime shares with its VM"
   for ((i = 0; i < ${#add_paths[@]}; i++)); do
     [[ "${add_paths[$i]}" == "$p" ]] && return 0
@@ -132,9 +141,11 @@ uninstall() {
   if [[ "$(readlink "$LINK" 2> /dev/null)" == "$INSTALL_DIR/bin/airlock" ]]; then
     sudo rm -f "$LINK" && log "removed $LINK"
   fi
-  rm -rf "$INSTALL_DIR" && log "removed $INSTALL_DIR"
-  log "volumes and image kept, delete them with: ${AIRLOCK_ENGINE:-docker} volume rm" \
-    "$VOLUME $CACHE_VOLUME $STATE_VOLUME; ${AIRLOCK_ENGINE:-docker} rmi $IMAGE"
+  find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 ! -name mount -exec rm -rf {} + \
+    && log "removed $INSTALL_DIR, kept $INSTALL_DIR/mount"
+  rmdir "$INSTALL_DIR" 2> /dev/null || true
+  log "config, volumes and image kept, delete them with: rm -rf $CONFIG_MOUNT;" \
+    "${AIRLOCK_ENGINE:-docker} volume rm $CACHE_VOLUME $STATE_VOLUME; ${AIRLOCK_ENGINE:-docker} rmi $IMAGE"
 }
 
 # A clone runs its own seed.sh. Through the symlink, SCRIPT_DIR is /usr/local/bin, so the installed one.
@@ -146,7 +157,7 @@ if [[ ! -f "$seed" ]]; then
 fi
 . "$seed"
 
-do_config=0 do_update=0 mode=claude backup_path=""
+do_config=0 do_update=0 mode=claude
 extra=() user_envs=() add_paths=() add_ro=()
 env_names=""
 while [[ $# -gt 0 ]]; do
@@ -201,20 +212,11 @@ while [[ $# -gt 0 ]]; do
       add_dir "${1#*=}" 1
       shift
       ;;
-    --import-config-backup)
-      [[ $# -ge 2 ]] || die "--import-config-backup needs a path"
-      backup_path="$2"
-      shift 2
-      ;;
-    --import-config-backup=*)
-      backup_path="${1#--import-config-backup=}"
-      shift
-      ;;
     --reset)
-      if "${AIRLOCK_ENGINE:-docker}" volume rm "$VOLUME" > /dev/null 2>&1; then
-        log "removed volume $VOLUME: copied config, the login, and session state"
+      if [[ -e "$CONFIG_MOUNT" || -L "$CONFIG_MOUNT" ]]; then
+        rm -rf "$CONFIG_MOUNT" && log "removed $CONFIG_MOUNT: copied config, the login, and session state"
       else
-        log "no volume $VOLUME"
+        log "no $CONFIG_MOUNT"
       fi
       "${AIRLOCK_ENGINE:-docker}" volume rm "$CACHE_VOLUME" > /dev/null 2>&1 \
         && log "removed volume $CACHE_VOLUME: npm, uv and go caches" || true
@@ -249,10 +251,7 @@ usage: airlock [flags] [claude args...]
                  repeatable. --add-dir is the same flag. Mounted at its host path.
   --add-dir-ro DIR
                  the same, read-only, repeatable
-  --import-config-backup FILE
-                 replace the config volume's contents with FILE, a tar (optionally
-                 compressed) of a prior volume, then exit. Discards what is there now.
-  --reset        wipe everything persisted and exit: the volume holding the copied
+  --reset        wipe everything persisted and exit: the folder holding the copied
                  config, the login and session state, the volume holding ~/.config
                  and the logins of tools like gh, the remembered answers in
                  ~/.config/airlock, and ~/.cache/airlock.
@@ -262,9 +261,10 @@ usage: airlock [flags] [claude args...]
 Anything else is passed to claude, e.g. `airlock -p 'summarise this repo'`.
 
 On first run it looks for Claude config in $CLAUDE_CONFIG_DIR or ~/.claude and asks
-what to copy into a persistent volume. Symlinks are resolved, so a config kept in a
-dotfiles repo or a synced folder works. Nothing is bind-mounted, so the container
-cannot change your host config. Answers are remembered in ~/.config/airlock/config.
+what to copy into ~/.airlock/mount/claude, which becomes the container's ~/.claude.
+Symlinks are resolved, so a config kept in a dotfiles repo or a synced folder works.
+Your own ~/.claude is never mounted, so the container cannot change it. Answers are
+remembered in ~/.config/airlock/config.
 
 The container logs in separately and gets no ANTHROPIC_* from the host, so it can run
 a different account or endpoint than the host does: airlock -e ANTHROPIC_BASE_URL=...
@@ -272,8 +272,11 @@ a different account or endpoint than the host does: airlock -e ANTHROPIC_BASE_UR
 Environment:
   AIRLOCK_HOME   container home; defaults to the host $HOME so absolute paths in
                  settings.json resolve
-  AIRLOCK_ENGINE, AIRLOCK_IMAGE, AIRLOCK_VOLUME, AIRLOCK_CACHE_VOLUME,
-  AIRLOCK_STATE_VOLUME, AIRLOCK_PLATFORM
+  AIRLOCK_CONFIG_DIR
+                 the folder mounted as the container's ~/.claude; defaults to
+                 ~/.airlock/mount/claude
+  AIRLOCK_ENGINE, AIRLOCK_IMAGE, AIRLOCK_CACHE_VOLUME, AIRLOCK_STATE_VOLUME,
+  AIRLOCK_PLATFORM
 EOF
       exit 0
       ;;
@@ -308,14 +311,9 @@ if ! "$ENGINE" image inspect "$IMAGE" > /dev/null 2>&1; then
   "$ENGINE" pull --platform "$PLATFORM" "$IMAGE"
 fi
 
-if [[ -n "$backup_path" ]]; then
-  seed_import_backup "$backup_path"
-  exit 0
-fi
-
 seed_load_prefs
-# No volume means nothing has been copied yet, so that is the first-run signal.
-if [[ "$do_config" == 1 ]] || ! "$ENGINE" volume inspect "$VOLUME" > /dev/null 2>&1; then
+# No folder means nothing has been copied yet, so that is the first-run signal.
+if [[ "$do_config" == 1 ]] || [[ ! -d "$CONFIG_MOUNT" ]]; then
   seed_interview
 fi
 
@@ -327,12 +325,16 @@ fi
 WORKDIR="$(pwd -P)" # docker resolves the source in the VM,
 # where a logical path may not exist
 [[ "$WORKDIR" == "/" ]] && die "refusing to mount /"
-[[ "$WORKDIR" == "$HOST_HOME" ]] && die "refusing to run from \$HOME; it collides with the config volume"
+[[ "$WORKDIR" == "$HOST_HOME" ]] && die "refusing to run from \$HOME; it collides with the config mount"
 [[ "$WORKDIR" == "$HOST_CLAUDE" || "$WORKDIR" == "$HOST_CLAUDE"/* ]] \
-  && die "refusing to run from inside ~/.claude; it collides with the config volume"
+  && die "refusing to run from inside ~/.claude; it collides with the config mount"
 shared_path "$WORKDIR" || die "$WORKDIR is outside the paths the runtime shares with its VM"
 
-mounts=(--mount "type=volume,src=$VOLUME,dst=$BOX_CLAUDE")
+mkdir -p "$CONFIG_MOUNT" # the engine would create a missing bind source owned by root
+config_src="$(cd -- "$CONFIG_MOUNT" && pwd -P)" || die "cannot enter $CONFIG_MOUNT"
+shared_path "$config_src" || die "$config_src is outside the paths the runtime shares with its VM"
+
+mounts=(--mount "type=bind,src=$config_src,dst=$BOX_CLAUDE")
 # npx and uvx fetch an MCP server on every launch, so without this each session re-downloads.
 mounts+=(--mount "type=volume,src=$CACHE_VOLUME,dst=$BOX_HOME/.cache")
 # gh writes its token to ~/.config/gh, so without this every session starts logged out.

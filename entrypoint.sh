@@ -80,11 +80,6 @@ mkdir -p "$HOME_DIR" "$CONFIG_DIR" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" \
 own "$HOME_DIR" "$HOME_DIR/go" "$HOME_DIR/go/bin" "$HOME_DIR/.docker" \
   "$HOME_DIR/.cache" "$HOME_DIR/.config"
 
-# The seed runs before the uid is known, so its files can land owned by someone else.
-if [[ "$(stat -c %u "$CONFIG_DIR" 2> /dev/null || echo 0)" != "$TARGET_UID" ]]; then
-  chown -R "$TARGET_UID:$TARGET_GID" "$CONFIG_DIR" 2> /dev/null || own "$CONFIG_DIR"
-fi
-
 # Copied, not bound, so writes stay off the host and ssh gets a writable known_hosts.
 if [[ -d "$SEED_DIR/ssh" ]]; then
   rm -rf "$HOME_DIR/.ssh"
