@@ -5,7 +5,7 @@ ARG UV_VERSION=0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c857334095
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.282
+ARG CLAUDE_VERSION=2.1.283
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.1
 # renovate: datasource=github-releases depName=helm/helm
