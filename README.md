@@ -59,6 +59,11 @@ airlock --self-update     # pull the newest image and launcher, then exit
 After Claude exits, airlock prints a yellow line when GHCR has a newer image. The check runs
 in the background while Claude runs.
 
+- The check also pulls the newer image by its version tag, so `--self-update` finds every layer
+  already local. It never pulls `latest`, since that would pair a new image with the old launcher.
+- The pull stops when Claude exits. Docker keeps the finished layers for the next session.
+- One session at a time pulls. `AIRLOCK_PREFETCH=0` turns the pull off.
+
 Every change on `main` to `Dockerfile`, `entrypoint.sh`, `airlock`, `lib/seed.sh` or the
 publish workflow publishes an arm64 image, for Apple Silicon. It also creates a GitHub release
 named after the image's version.
@@ -205,6 +210,7 @@ runtime's VM cannot follow it. The target must be under `$HOME`, `/Users` or `/V
 | `AIRLOCK_NO_SSH`, `AIRLOCK_NO_KUBE`, `AIRLOCK_NO_GIT`, `AIRLOCK_NO_DOCKER_SOCK` | override a saved choice for one run             |
 | `AIRLOCK_FIX_SIGNING=0`                                                         | leave a literal ssh `user.signingkey` alone     |
 | `AIRLOCK_COPY_KUBECONFIG=0`                                                     | do not copy the kubeconfig to a writable path   |
+| `AIRLOCK_PREFETCH=0`                                                            | do not pull a newer image in the background     |
 | `AIRLOCK_ENGINE`, `AIRLOCK_IMAGE`, `AIRLOCK_PLATFORM`                           | overrides                                       |
 | `AIRLOCK_CONFIG_DIR`                                                            | the config folder, see above                    |
 | `AIRLOCK_CACHE_VOLUME`, `AIRLOCK_STATE_VOLUME`                                  | volume names                                    |
