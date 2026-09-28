@@ -18,6 +18,8 @@ ARG KUSTOMIZE_VERSION=v5.8.1
 ARG KUBECTX_VERSION=v0.11.0
 # renovate: datasource=github-releases depName=yannh/kubeconform
 ARG KUBECONFORM_VERSION=v0.8.0
+# renovate: datasource=github-releases depName=bitnami-labs/sealed-secrets
+ARG KUBESEAL_VERSION=0.40.0
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.53.6
 # renovate: datasource=github-releases depName=cli/cli
@@ -96,6 +98,7 @@ ARG K9S_VERSION
 ARG KUSTOMIZE_VERSION
 ARG KUBECTX_VERSION
 ARG KUBECONFORM_VERSION
+ARG KUBESEAL_VERSION
 ARG YQ_VERSION
 ARG GH_VERSION
 ARG ACT_VERSION
@@ -130,6 +133,10 @@ RUN set -eux; \
     curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-${TARGETARCH}.tar.gz" \
       | tar -xz -C /tmp kubeconform; \
     install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform; \
+    \
+    curl -fsSL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-${TARGETARCH}.tar.gz" \
+      | tar -xz -C /tmp kubeseal; \
+    install -m 0755 /tmp/kubeseal /usr/local/bin/kubeseal; \
     \
     curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/${KUBECTX_VERSION}/kubectx_${KUBECTX_VERSION}_linux_${alt_arch}.tar.gz" \
       | tar -xz -C /tmp kubectx; \

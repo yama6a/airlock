@@ -36,9 +36,10 @@
     // MAJOR updates get their own PR each, which is Renovate's default. That keeps a breaking bump
     // reviewed in isolation.
     {
-      // Both release tags are v-prefixed and the ARGs are not, because the download URLs build both forms.
-      description: "gh and golangci-lint releases are v-prefixed, the ARGs are not",
-      matchDepNames: ["cli/cli", "golangci/golangci-lint"],
+      // The release tags are v-prefixed and the ARGs are not, because the download URLs build both forms.
+      // sealed-secrets also tags its helm chart as helm-v2.20.0, and this pattern skips those releases.
+      description: "gh, golangci-lint and kubeseal releases are v-prefixed, the ARGs are not",
+      matchDepNames: ["cli/cli", "golangci/golangci-lint", "bitnami-labs/sealed-secrets"],
       extractVersion: "^v(?<version>.+)$",
     },
     {
