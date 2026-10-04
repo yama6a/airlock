@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
-ARG UV_VERSION=0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc
+ARG UV_VERSION=0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.288
+ARG CLAUDE_VERSION=2.1.289
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.1
 # renovate: datasource=github-releases depName=helm/helm
@@ -48,7 +48,7 @@ ARG PG_MAJOR=18
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:3595d7fc4286a33fad0fd853a4063e654287a9c3787437d7937c94ca3f7a804e
+FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
 
 ARG TARGETARCH
 
