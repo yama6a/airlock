@@ -37,7 +37,7 @@ ARG OAPI_CODEGEN_VERSION=v2.8.0
 # renovate: datasource=go depName=mvdan.cc/gofumpt
 ARG GOFUMPT_VERSION=v0.12.0
 # renovate: datasource=go depName=golang.org/x/vuln
-ARG GOVULNCHECK_VERSION=v1.8.0
+ARG GOVULNCHECK_VERSION=v1.9.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 ARG GOLANGCI_LINT_VERSION=2.14.0
 # renovate: datasource=npm depName=playwright
