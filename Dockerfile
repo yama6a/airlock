@@ -5,11 +5,11 @@ ARG UV_VERSION=0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d640485
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.299
+ARG CLAUDE_VERSION=2.1.301
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.1
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v3.22.0
+ARG HELM_VERSION=v3.22.1
 # renovate: datasource=github-releases depName=derailed/k9s
 ARG K9S_VERSION=v0.51.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize
@@ -29,9 +29,9 @@ ARG ACT_VERSION=v0.2.89
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.2
 # renovate: datasource=github-tags depName=nodejs/node
-ARG NODE_VERSION=v26.11.1
+ARG NODE_VERSION=v26.12.0
 # renovate: datasource=go depName=golang.org/x/tools/gopls
-ARG GOPLS_VERSION=v0.23.0
+ARG GOPLS_VERSION=v0.24.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
 ARG OAPI_CODEGEN_VERSION=v2.8.0
 # renovate: datasource=go depName=mvdan.cc/gofumpt
@@ -41,7 +41,7 @@ ARG GOVULNCHECK_VERSION=v1.9.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 ARG GOLANGCI_LINT_VERSION=2.14.0
 # renovate: datasource=npm depName=playwright
-ARG PLAYWRIGHT_VERSION=1.64.0
+ARG PLAYWRIGHT_VERSION=1.64.1
 # renovate: datasource=pypi depName=pgcli
 ARG PGCLI_VERSION=4.7.1
 ARG PG_MAJOR=18
