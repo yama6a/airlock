@@ -5,7 +5,7 @@ ARG UV_VERSION=0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d640485
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.301
+ARG CLAUDE_VERSION=2.1.302
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.1
 # renovate: datasource=github-releases depName=helm/helm
@@ -39,7 +39,7 @@ ARG GOFUMPT_VERSION=v0.12.0
 # renovate: datasource=go depName=golang.org/x/vuln
 ARG GOVULNCHECK_VERSION=v1.9.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
-ARG GOLANGCI_LINT_VERSION=2.14.0
+ARG GOLANGCI_LINT_VERSION=2.15.0
 # renovate: datasource=npm depName=playwright
 ARG PLAYWRIGHT_VERSION=1.64.1
 # renovate: datasource=pypi depName=pgcli
@@ -48,7 +48,7 @@ ARG PG_MAJOR=18
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
+FROM ubuntu:26.04@sha256:c098726dd9b9733f3e885f8de0ef375206a311b0a317eadc40d347b1115fb944
 
 ARG TARGETARCH
 
