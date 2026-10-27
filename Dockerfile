@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
-ARG UV_VERSION=0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff
+ARG UV_VERSION=0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.310
+ARG CLAUDE_VERSION=2.1.311
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.1
 # renovate: datasource=github-releases depName=helm/helm
@@ -19,11 +19,11 @@ ARG KUBECTX_VERSION=v0.11.0
 # renovate: datasource=github-releases depName=yannh/kubeconform
 ARG KUBECONFORM_VERSION=v0.8.0
 # renovate: datasource=github-releases depName=bitnami-labs/sealed-secrets
-ARG KUBESEAL_VERSION=0.41.1
+ARG KUBESEAL_VERSION=0.41.2
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.54.1
 # renovate: datasource=github-releases depName=cli/cli
-ARG GH_VERSION=2.103.2
+ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=nektos/act
 ARG ACT_VERSION=v0.2.89
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
@@ -48,7 +48,7 @@ ARG PG_MAJOR=18
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:c098726dd9b9733f3e885f8de0ef375206a311b0a317eadc40d347b1115fb944
+FROM ubuntu:26.04@sha256:19fcd1bf268f02b60aca3bd30bd8a6d9a11759a430e32921833e65f16d87348a
 
 ARG TARGETARCH
 
