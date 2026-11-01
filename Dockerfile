@@ -25,7 +25,7 @@ ARG YQ_VERSION=v4.54.1
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=nektos/act
-ARG ACT_VERSION=v0.2.92
+ARG ACT_VERSION=v0.2.94
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.3
 # renovate: datasource=github-tags depName=nodejs/node
@@ -33,7 +33,7 @@ ARG NODE_VERSION=v26.13.0
 # renovate: datasource=go depName=golang.org/x/tools/gopls
 ARG GOPLS_VERSION=v0.24.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
-ARG OAPI_CODEGEN_VERSION=v2.8.1
+ARG OAPI_CODEGEN_VERSION=v2.8.2
 # renovate: datasource=go depName=mvdan.cc/gofumpt
 ARG GOFUMPT_VERSION=v0.12.0
 # renovate: datasource=go depName=golang.org/x/vuln
