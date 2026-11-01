@@ -49,12 +49,6 @@
       extractVersion: "^kustomize/(?<version>.+)$",
     },
     {
-      // helm 4 is a breaking major. Delete this rule when you want the upgrade PR.
-      description: "hold helm on the 3.x line",
-      matchDepNames: ["helm/helm"],
-      allowedVersions: "<4",
-    },
-    {
       // node ships odd-numbered majors that never reach LTS and are unsupported within months.
       description: "node: even (LTS) majors only",
       matchDepNames: ["nodejs/node"],
