@@ -9,7 +9,7 @@ ARG CLAUDE_VERSION=2.1.316
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.2
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v3.22.1
+ARG HELM_VERSION=v4.3.1
 # renovate: datasource=github-releases depName=derailed/k9s
 ARG K9S_VERSION=v0.51.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize
