@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
-ARG UV_VERSION=0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0
+ARG UV_VERSION=0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.316
+ARG CLAUDE_VERSION=2.1.317
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.2
 # renovate: datasource=github-releases depName=helm/helm
@@ -25,7 +25,7 @@ ARG YQ_VERSION=v4.54.1
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=nektos/act
-ARG ACT_VERSION=v0.2.94
+ARG ACT_VERSION=v0.2.95
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.3
 # renovate: datasource=github-tags depName=nodejs/node
