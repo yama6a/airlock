@@ -5,7 +5,7 @@ ARG UV_VERSION=0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a9
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.317
+ARG CLAUDE_VERSION=2.1.318
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.2
 # renovate: datasource=github-releases depName=helm/helm
@@ -25,7 +25,7 @@ ARG YQ_VERSION=v4.54.1
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=nektos/act
-ARG ACT_VERSION=v0.2.95
+ARG ACT_VERSION=v0.2.96
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.3
 # renovate: datasource=github-tags depName=nodejs/node
