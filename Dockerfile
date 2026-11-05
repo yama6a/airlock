@@ -25,7 +25,7 @@ ARG YQ_VERSION=v4.54.1
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=nektos/act
-ARG ACT_VERSION=v0.2.96
+ARG ACT_VERSION=v0.2.97
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.3
 # renovate: datasource=github-tags depName=nodejs/node
