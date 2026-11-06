@@ -21,7 +21,7 @@ ARG KUBECONFORM_VERSION=v0.8.0
 # renovate: datasource=github-releases depName=bitnami-labs/sealed-secrets
 ARG KUBESEAL_VERSION=0.41.2
 # renovate: datasource=github-releases depName=mikefarah/yq
-ARG YQ_VERSION=v4.54.1
+ARG YQ_VERSION=v4.54.2
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=nektos/act
@@ -41,7 +41,7 @@ ARG GOVULNCHECK_VERSION=v1.9.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 ARG GOLANGCI_LINT_VERSION=2.15.0
 # renovate: datasource=npm depName=playwright
-ARG PLAYWRIGHT_VERSION=1.64.1
+ARG PLAYWRIGHT_VERSION=1.65.0
 # renovate: datasource=pypi depName=pgcli
 ARG PGCLI_VERSION=4.7.1
 # renovate: datasource=docker depName=postgres
