@@ -29,7 +29,7 @@ ARG ACT_VERSION=v0.2.97
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.4
 # renovate: datasource=github-tags depName=nodejs/node
-ARG NODE_VERSION=v26.13.0
+ARG NODE_VERSION=v26.13.1
 # renovate: datasource=go depName=golang.org/x/tools/gopls
 ARG GOPLS_VERSION=v0.24.0
 # renovate: datasource=go depName=github.com/oapi-codegen/oapi-codegen/v2
@@ -49,7 +49,7 @@ ARG PG_MAJOR=18
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+FROM ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
 
 ARG TARGETARCH
 
