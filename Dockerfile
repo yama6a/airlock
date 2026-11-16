@@ -25,7 +25,7 @@ ARG YQ_VERSION=v4.54.3
 # renovate: datasource=github-releases depName=cli/cli
 ARG GH_VERSION=2.104.0
 # renovate: datasource=github-releases depName=nektos/act
-ARG ACT_VERSION=v0.2.97
+ARG ACT_VERSION=v0.2.98
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
 ARG GO_VERSION=go1.27.4
 # renovate: datasource=github-tags depName=nodejs/node
@@ -49,7 +49,7 @@ ARG PG_MAJOR=18
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
 
 ARG TARGETARCH
 
