@@ -45,7 +45,7 @@ ARG PLAYWRIGHT_VERSION=1.65.1
 # renovate: datasource=pypi depName=pgcli
 ARG PGCLI_VERSION=4.7.1
 # renovate: datasource=docker depName=postgres
-ARG PG_MAJOR=18
+ARG PG_MAJOR=19
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
