@@ -1,11 +1,11 @@
-# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+# syntax=docker/dockerfile:1@sha256:572cebbc2b15e6f84c077742952674889cb63cd5e9b80abdffcbe587b6f19183
 
 # Its own stage because BuildKit refuses a variable in COPY --from, only in FROM.
 ARG UV_VERSION=0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d
 
 # Global scope. Redeclare each ARG bare above the RUN that uses it, so a bump rebuilds from there down.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-ARG CLAUDE_VERSION=2.1.329
+ARG CLAUDE_VERSION=2.1.330
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=v1.37.2
 # renovate: datasource=github-releases depName=helm/helm
