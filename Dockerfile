@@ -7,7 +7,7 @@ ARG UV_VERSION=0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
 ARG CLAUDE_VERSION=2.1.332
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION=v1.37.2
+ARG KUBECTL_VERSION=v1.37.3
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v4.3.2
 # renovate: datasource=github-releases depName=derailed/k9s
@@ -23,7 +23,7 @@ ARG KUBESEAL_VERSION=0.41.2
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.54.3
 # renovate: datasource=github-releases depName=cli/cli
-ARG GH_VERSION=2.105.0
+ARG GH_VERSION=2.106.0
 # renovate: datasource=github-releases depName=nektos/act
 ARG ACT_VERSION=v0.2.98
 # renovate: datasource=github-tags depName=golang/go versioning=regex:^go(?<major>\d+)\.(?<minor>\d+)(\.(?<patch>\d+))?$
