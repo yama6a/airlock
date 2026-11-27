@@ -203,6 +203,10 @@ RUN HOME=/opt/claude sh -c "mkdir -p /opt/claude && curl -fsSL https://claude.ai
     && chmod -R a+rX /opt/claude \
     && claude --version
 
+# publish.yaml sets this to its run ID, so this step skips the layer cache and installs current security updates.
+ARG OS_UPDATES_RUN
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
     DISABLE_AUTOUPDATER=1 \
