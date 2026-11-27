@@ -60,6 +60,8 @@ jobs:
           context: .
           platforms: linux/arm64
           push: true
+          # A new value per run, so the apt-get upgrade step never comes from the cache.
+          build-args: OS_UPDATES_RUN=${{ github.run_id }}
           tags: |
             ${{ steps.tag.outputs.image }}:latest
             ${{ steps.tag.outputs.image }}:${{ steps.tag.outputs.claude }}

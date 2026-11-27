@@ -203,6 +203,11 @@ RUN HOME=/opt/claude sh -c "mkdir -p /opt/claude && curl -fsSL https://claude.ai
     && chmod -R a+rX /opt/claude \
     && claude --version
 
+# The publish build sets OS_UPDATES_RUN to its run ID. The new value skips the layer cache for this step
+# only, so every image gets current Ubuntu security updates while the slow layers above stay cached.
+ARG OS_UPDATES_RUN
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
     DISABLE_AUTOUPDATER=1 \
