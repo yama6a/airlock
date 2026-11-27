@@ -70,9 +70,9 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.tag.outputs.version }}
-          # CI's PR build reads this scope.
-          cache-from: type=gha,scope=arm64
-          cache-to: type=gha,scope=arm64,mode=max
+          # CI's PR build reads this tag. The version check in airlock only matches tags like 2.1.280-3, so it skips it.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-linux-arm64
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-linux-arm64,mode=max,ignore-error=true
       # Also creates the git tag, which airlock --self-update downloads the launcher from.
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
